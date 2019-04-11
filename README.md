@@ -3,6 +3,7 @@ Compare data analyst tools by cleaning, exploring and reporting Seattle Collisio
 
 ### To Do
 * Download data programmatically
+* Make R Studio version viewable
 * Add Python version
 * Add SQL version
 * Add Tableau version
