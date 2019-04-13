@@ -1,5 +1,5 @@
 # Seattle-Collisions
-Compare data analyst tools by cleaning, exploring and reporting Seattle Collisions data using Python, R, SQL and Tableau
+Compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau on the Seattle Collisions dataset
 
 ### To Do
 * Download data programmatically
