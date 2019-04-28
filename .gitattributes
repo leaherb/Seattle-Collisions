@@ -1,1 +1,4 @@
+# ignore HTML even tho it's the biggest
+*.html linguist-vendored
+# heavy-handed option
 *.* linguist-language=R
