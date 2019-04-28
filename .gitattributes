@@ -1,1 +1,1 @@
-R/*.Rmd linguist-vendored
+*.Rmd linguist-language=R
