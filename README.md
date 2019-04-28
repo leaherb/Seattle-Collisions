@@ -2,7 +2,7 @@
 Compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau on the Seattle Collisions dataset
 
 ### To Do
-* Download data programmatically
+~~* Download data programmatically~~
 * Improve R Studio version: 
 * * justify cleaning steps
 * * create functions for repeatable visuals
