@@ -40,11 +40,24 @@ mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust =
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
 
 ## Load data
-
-# from local file (downloaded manually)
+  # from local file (downloaded manually)
 #df = read.csv('Collisions.csv')
-# from data-seattlecitygis (latest data available)
+  # from data-seattlecitygis (latest data available)
 df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv')
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, DataStructureGlimpse}
+# Function to print dataframe summaries.
+df_glimpse <- function(this_df) {
+  print(cat("Rows: ", dim(df)[1], "\nVariables: ", dim(df)[2],"\n\n"))
+  print(str(df))
+  print(summary(df))
+}
+```
+
+### Data structure before cleaning
+```{r}
+df_glimpse(df)
 ```
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Clean_data}
@@ -143,32 +156,18 @@ df <- df %>%
 
 ```
 
-### Data Structure
-
-```{r echo=FALSE, message=FALSE, error=FALSE, DataStructureGlimpse }
-
-cat("Rows: ", dim(df)[1], "\nVariables: ", dim(df)[2])
-
+### Data structure after cleaning
+```{r}
+df_glimpse(df)
 ```
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+## Observations
 
-str(df)
+The dataset consists of 28 columns and 205,370 rows. 
 
-```
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-
-summary(df)
-
-```
-
-The dataset consists of 28 variables for 205,370 observations. 
-
-It will be interesting to see what factors may contribute to Seattle collisions, and if they change over time.
 
 #\
-Univariate Plots Section
+Univariate Plots
 
 ### Have the total number of collisions changed over the years?
 
