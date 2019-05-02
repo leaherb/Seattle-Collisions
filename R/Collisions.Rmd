@@ -1,11 +1,15 @@
 Exploratory Analysis of Seattle Collisions by Leah Erb
 ============================================================
 
-This report explores **collision** reports in **Seattle, Washington, USA**.
+This report explores **collision** reports from **Seattle, Washington, USA**.
 
 # Dataset
 The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
 
+
+## Gather
+
+### Setup programming environment
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Packages}
 # Libraries
 library(data.table) # for renaming columns
@@ -21,10 +25,6 @@ library(reshape2)
 library(cowplot)
 library(gridExtra)
 
-```
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-
 # Global Settings
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
 
@@ -37,16 +37,16 @@ mylayer_long_xlabel <- theme(axis.text.x=element_text(angle=90, hjust=1))
 mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust = -.2)
 ```
 
+### Load data
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
-
-## Load data
   # from local file (downloaded manually)
-#df = read.csv('Collisions.csv')
+df = read.csv('Collisions.csv')
   # from data-seattlecitygis (latest data available)
-df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv')
+#df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv')
 ```
 
-```{r echo=FALSE, message=FALSE, error=FALSE, DataStructureGlimpse}
+## Assess
+```{r echo=FALSE, message=FALSE, error=FALSE, df_glimpse}
 # Function to print dataframe summaries.
 df_glimpse <- function(this_df) {
   print(cat("Rows: ", dim(df)[1], "\nVariables: ", dim(df)[2],"\n\n"))
@@ -55,10 +55,26 @@ df_glimpse <- function(this_df) {
 }
 ```
 
-### Data structure before cleaning
 ```{r}
 df_glimpse(df)
 ```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Dates and Times
+print('INCDATE ...')
+df$INCDATE[0]
+min(as.Date(df$INCDATE))
+max(as.Date(df$INCDATE))
+print('INCDTTM ...')
+df$INCDTTM[1]
+(as.POSIXct(word(df$INCDTTM, 2), format='%H:%M'))
+```
+
+### Observations
+* INCDATE includes only dates (not time), between 2003-10-06 and 2019-01-31
+* 
+
+## Clean 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Clean_data}
 
@@ -156,14 +172,15 @@ df <- df %>%
 
 ```
 
-### Data structure after cleaning
-```{r}
+### Report data structure after cleaning
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
 df_glimpse(df)
 ```
 
-## Observations
+## Data Structure Observations
 
-The dataset consists of 28 columns and 205,370 rows. 
+The dataset consists of 205,370 rows (collision reports) and 28 columns (features). 
 
 
 #\
