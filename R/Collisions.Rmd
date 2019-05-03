@@ -40,9 +40,10 @@ mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust =
 ### Load data
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
   # from local file (downloaded manually)
-df = read.csv('Collisions.csv')
+#df = read.csv('Collisions.csv', na.strings=c(""," "), header=TRUE)
   # from data-seattlecitygis (latest data available)
-#df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv')
+df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv', 
+     na.strings=c(""," "), header=TRUE)
 ```
 
 ## Assess
@@ -53,6 +54,22 @@ df_glimpse <- function(this_df) {
   print(str(df))
   print(summary(df))
 }
+```
+
+### Null values?
+```{r}
+print('Columns with NULL values:')
+M <- sapply(df, function(x) sum(is.na(x)))
+M[M>0]
+```
+
+#### Experiment with DataExplorer
+```{r}
+#install.packages('DataExplorer')
+library(DataExplorer)
+
+create_report(df)
+profile_missing(df)
 ```
 
 ```{r}
