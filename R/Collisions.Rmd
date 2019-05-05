@@ -19,6 +19,7 @@ library(ggplot2)
 library(scales)
 library(GGally)    # for ggcorr function
 library(dplyr)
+library(tidyverse)
 library(knitr)
 library(psych)
 library(reshape2)  
@@ -40,42 +41,34 @@ mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust =
 ### Load data
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
   # from local file (downloaded manually)
-#df = read.csv('Collisions.csv', na.strings=c(""," "), header=TRUE)
+df = read.csv('Collisions.csv', na.strings=c(""," "), header=TRUE)
   # from data-seattlecitygis (latest data available)
-df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv', 
-     na.strings=c(""," "), header=TRUE)
+#df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv', 
+#     na.strings=c(""," "), header=TRUE)
 ```
 
 ## Assess
-```{r echo=FALSE, message=FALSE, error=FALSE, df_glimpse}
-# Function to print dataframe summaries.
-df_glimpse <- function(this_df) {
-  print(cat("Rows: ", dim(df)[1], "\nVariables: ", dim(df)[2],"\n\n"))
-  print(str(df))
-  print(summary(df))
-}
+
+```{r}
+glimpse(df)
 ```
 
-### Null values?
+
+### Rows with NULL values?
 ```{r}
-print('Columns with NULL values:')
 M <- sapply(df, function(x) sum(is.na(x)))
-M[M>0]
+#M[M>0]
+as.data.frame(M[M>0]) %>% rename_at(1, ~'n_nulls')
 ```
-
-#### Experiment with DataExplorer
 ```{r}
-#install.packages('DataExplorer')
-library(DataExplorer)
-
-create_report(df)
-profile_missing(df)
+df[is.na(df$SEVERITYCODE) | is.na(df$SDOT_COLCODE) | is.na(df$SDOT_COLDESC), c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')]
 ```
 
-```{r}
-df_glimpse(df)
-```
+#### SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC have only 1 record with a NULL value. 
+#### All records have values for INCDATE and INCDTTM.
 
+
+### Date/Time columns?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # Dates and Times
 print('INCDATE ...')
@@ -83,13 +76,71 @@ df$INCDATE[0]
 min(as.Date(df$INCDATE))
 max(as.Date(df$INCDATE))
 print('INCDTTM ...')
-df$INCDTTM[1]
-(as.POSIXct(word(df$INCDTTM, 2), format='%H:%M'))
+head(df$INCDTTM, 50)
+```
+#### INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
+#### INCDTTM is a factor with format of either 'M/DD/YY HH:MM' or 'M/DD/YY'
+#### Minimum INCDATE = '2003-10-06T00:00:00.000Z'
+
+
+```{r}
+count_pct <- function(df) {
+  return(
+    df %>% 
+      tally() %>% 
+      mutate(freq = (n_pct = n / sum(n)))
+  )
+}
 ```
 
-### Observations
-* INCDATE includes only dates (not time), between 2003-10-06 and 2019-01-31
-* 
+```{r}
+df %>% group_by(fct_explicit_na(UNDERINFL)) %>% count_pct
+df %>% group_by(fct_explicit_na(INATTENTIONIND)) %>% count_pct
+df %>% group_by(fct_explicit_na(SPEEDING)) %>% count_pct
+df %>% group_by(fct_explicit_na(HITPARKEDCAR)) %>% count_pct
+
+```
+#### UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
+#### INATTENTIONIND values are 'Y' or NULL, >86% NULL.
+#### SPEEDING values are 'Y' or NULL, >95% NULL.
+#### HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
+
+
+### What % of count columns are > 0?
+```{r}
+cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT','INJURIES','SERIOUSINJURIES','FATALITIES')
+as.data.frame(lapply(df[,cols], 
+                     function(x){
+                       length(which(x!=0))/length(x) *100
+                       } 
+                     ))
+```
+#### > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT 
+#### < 28% collisions have non-zero values INJURIES
+#### < 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
+
+
+### Assessment Observation Compilation
+*May require cleaning:*
+* Some key columns may not be of use in our analysis since we not, at this time,
+  joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
+  -EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
+* INCDATE is datatype 'factor', and includes only dates.
+* INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
+* INCDTTM is a factor with format of either 'M/DD/YY HH:MM' or 'M/DD/YY'
+* Minimum INCDATE = '2003-10-06T00:00:00.000Z'
+* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC have only record that is non-null.  
+* SDOT_COLCODE contains categorical data but is datatype Integer.#### UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
+* INATTENTIONIND values are 'Y' or NULL, >86% NULL.
+* SPEEDING values are 'Y' or NULL, >95% NULL.
+* HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
+
+**Of interest:*
+* > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT 
+* < 28% collisions have non-zero values INJURIES
+* < 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
+
+
 
 ## Clean 
 
@@ -189,10 +240,11 @@ df <- df %>%
 
 ```
 
+
 ### Report data structure after cleaning
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
-df_glimpse(df)
+glimpse(df)
 ```
 
 ## Data Structure Observations
