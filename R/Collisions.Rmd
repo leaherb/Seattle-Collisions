@@ -3,14 +3,12 @@ Exploratory Analysis of Seattle Collisions by Leah Erb
 
 This report explores **collision** reports from **Seattle, Washington, USA**.
 
-# Dataset
+# The Dataset
 The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
 
-
-## Gather
-
+```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
 ### Setup programming environment
-```{r echo=FALSE, message=FALSE, warning=FALSE, Packages}
+
 # Libraries
 library(data.table) # for renaming columns
 library(stringr)   # for 'word' function
@@ -38,52 +36,51 @@ mylayer_long_xlabel <- theme(axis.text.x=element_text(angle=90, hjust=1))
 mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust = -.2)
 ```
 
-### Load data
+
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
-  # from local file (downloaded manually)
-df = read.csv('Collisions.csv', na.strings=c(""," "), header=TRUE)
-  # from data-seattlecitygis (latest data available)
-#df = read.csv('http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv', 
-#     na.strings=c(""," "), header=TRUE)
+### Load data
+
+# Manually toggle datafile as local or live source
+datafile = 'Collisions.csv'
+#datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
+
+# Import empty strings as NULL
+df = read.csv(datafile, na.strings=c(""," "), header=TRUE)
 ```
 
-## Assess
+# Assess
 
 ```{r}
 glimpse(df)
 ```
 
 
-### Rows with NULL values?
+#### Are there columns with NULL values?
 ```{r}
-M <- sapply(df, function(x) sum(is.na(x)))
-#M[M>0]
-as.data.frame(M[M>0]) %>% rename_at(1, ~'n_nulls')
+df_nulls <- sapply(df, function(x) sum(is.na(x)))
+as.data.frame(df_nulls[df_nulls>0]) %>% rename_at(1, ~'null_count')
 ```
+*Note:* all date and datetime columns have no NULL values.
+
+#### A few category columns have only 1 NULL, are they all from the same row?
 ```{r}
-df[is.na(df$SEVERITYCODE) | is.na(df$SDOT_COLCODE) | is.na(df$SDOT_COLDESC), c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')]
+df[is.na(df$SEVERITYCODE) | is.na(df$SDOT_COLCODE) | is.na(df$SDOT_COLDESC), 
+   c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')]
 ```
 
-#### SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC have only 1 record with a NULL value. 
-#### All records have values for INCDATE and INCDTTM.
-
-
-### Date/Time columns?
+#### What do Date/Time columns look like?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # Dates and Times
-print('INCDATE ...')
-df$INCDATE[0]
-min(as.Date(df$INCDATE))
-max(as.Date(df$INCDATE))
-print('INCDTTM ...')
-head(df$INCDTTM, 50)
+writeLines('INCDATE ...')
+head(df$INCDATE, 20)
+paste('Date range: ', min(as.Date(df$INCDATE)), ' -> ', max(as.Date(df$INCDATE)))
+writeLines('INCDTTM ...')
+head(df$INCDTTM, 20)
 ```
-#### INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
-#### INCDTTM is a factor with format of either 'M/DD/YY HH:MM' or 'M/DD/YY'
-#### Minimum INCDATE = '2003-10-06T00:00:00.000Z'
 
-
+#### For columns that counts-of-things, what % of values are non-zero?
 ```{r}
+# Function to find % of non-zero values in columns that count things.
 count_pct <- function(df) {
   return(
     df %>% 
@@ -94,19 +91,15 @@ count_pct <- function(df) {
 ```
 
 ```{r}
-df %>% group_by(fct_explicit_na(UNDERINFL)) %>% count_pct
-df %>% group_by(fct_explicit_na(INATTENTIONIND)) %>% count_pct
-df %>% group_by(fct_explicit_na(SPEEDING)) %>% count_pct
-df %>% group_by(fct_explicit_na(HITPARKEDCAR)) %>% count_pct
+cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
 
+lapply(df[cols], function(x) {
+  x <- enquo(x)
+  df %>% group_by(fct_explicit_na(!! x)) %>% count_pct
+  })
 ```
-#### UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
-#### INATTENTIONIND values are 'Y' or NULL, >86% NULL.
-#### SPEEDING values are 'Y' or NULL, >95% NULL.
-#### HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
 
-
-### What % of count columns are > 0?
+#### What % of count columns are > 0?
 ```{r}
 cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT','INJURIES','SERIOUSINJURIES','FATALITIES')
 as.data.frame(lapply(df[,cols], 
@@ -115,48 +108,66 @@ as.data.frame(lapply(df[,cols],
                        } 
                      ))
 ```
-#### > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT 
-#### < 28% collisions have non-zero values INJURIES
-#### < 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
 
+### Observations
+**May require cleaning:**
 
-### Assessment Observation Compilation
-*May require cleaning:*
+* INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
+
+* INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
+
+* Minimum INCDATE = '2003-10-06T00:00:00.000Z'
+
+* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value.  
+
+* SDOT_COLCODE contains categorical data but is datatype Integer.
+
+* UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
+
+* INATTENTIONIND values are 'Y' or NULL, >86% NULL.
+
+* SPEEDING values are 'Y' or NULL, >95% NULL.
+
+* HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
+
 * Some key columns may not be of use in our analysis since we not, at this time,
   joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
   -EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
-* INCDATE is datatype 'factor', and includes only dates.
-* INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
-* INCDTTM is a factor with format of either 'M/DD/YY HH:MM' or 'M/DD/YY'
-* Minimum INCDATE = '2003-10-06T00:00:00.000Z'
-* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC have only record that is non-null.  
-* SDOT_COLCODE contains categorical data but is datatype Integer.#### UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
-* INATTENTIONIND values are 'Y' or NULL, >86% NULL.
-* SPEEDING values are 'Y' or NULL, >95% NULL.
-* HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
+  
 
-**Of interest:*
-* > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT 
+**Of interest:**
+
+* > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
+
 * < 28% collisions have non-zero values INJURIES
+
 * < 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
 
 
 
-## Clean 
+#\
+Clean 
 
+* Change INCDATE datatype to Date
+
+* Create date/time columns:
+    + Year (YYYY)
+    + Month (1-12)
+    + Time (HH:MM)
+    + Hour (of day)
+    + DayPart (Morning, Afternoon, Evening, Night)
+    + Season (Spring, Summer, Fall, Winter)
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Clean_data}
-
-## Clean 
-
 # Date and Time
-  # convert INCDATE to date class
+  # convert INCDATE to date datatype
 df$INCDATE <- as.Date(df$INCDATE)
 
   # create year and month columns
 df$Year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
 df$Month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
 
-  # trim records not between 2004-2018 (our report range)
+  # trim records so all dates are part of a complete year's worth of reports
+  # TODO: move this to reporting logic where it makes sense to trim
 #max(df$INCDATE)
 #df <- subset(df, Year < 2019 & Year > 2003)
 
@@ -179,18 +190,29 @@ df$Season <- factor(with(df,
      ifelse(Month %in% c('9','10','11'), 'Fall', 
      ifelse(Month %in% c('12','1','2'), 'Winter', 
             'Unknown'))))))
+```
 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Simplify
 
-# Rename Columns for easier plot reading 
+## Rename Columns for easier plot reading 
+### Footnote:
+### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
+
+### Also, I was unsure whether I could use the 'DUI' alias for 'UNDERINFL'. In the same report, 'UNDERINFL' is short for 'Under the Influence of Alcohol and/or Drugs' and, without more detailed data available, is lumped together as ' DUI and/or Physical Control of the Vehicle while under the Influence'. 
+
+### References: 
+### https://www.wsdot.wa.gov/mapsdata/crash/pdf/2015_Annual_Collision_Summary.pdf
+### https://www.seattle.gov/Documents/Departments/SDOT/About/DocumentLibrary/Reports/2017_Traffic_Report.pdf
+
 df <- setnames(df,
          old=c('UNDERINFL', 'INATTENTIONIND'),
          new=c('DUI'      , 'INATTENTION'),
          skip_absent = TRUE)
 
 
-# Simplify and Standardize
-  # group SDOT collision types into fewer categories.
-  # (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+# group SDOT collision types into fewer categories.
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
 df$SDOTtype <- factor(with(df,
      ifelse(SDOT_COLCODE <= 5, 'Hits Pedestrian', 
      ifelse(SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12, 'Sideswipe', 
@@ -208,7 +230,10 @@ df$SDOTtype <- factor(with(df,
      ifelse(SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84, 'Rear End', 
             'Other Collision'))))))))))))))))
 
-  # standardize DUI values 
+# shorten SEVERITYDESC values by removing ' Collision' from strings
+df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
+
+# standardize DUI values 
 df$DUI <- as.factor(with(df,
      ifelse(DUI == 'N', 'N', 
      ifelse(DUI == 'Y', 'Y',  
@@ -216,14 +241,16 @@ df$DUI <- as.factor(with(df,
      ifelse(DUI == '1', 'Y',         
             ''))))))
 
-  # replace empty strings with 'Unknown'
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Trim 
+
+# replace empty strings with 'Unknown'
+# TODO double-check this logic now that empty strings are replaced with NA on import
 df$WEATHER <- as.character(df$WEATHER)
 df$WEATHER[df$WEATHER==''] <- 'Unknown'
 df$WEATHER <- as.factor(df$WEATHER)
-
-  # shorten SEVERITYDESC values by removing ' Collision' from strings
-df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
-
 
 
 ## Trim
@@ -241,15 +268,11 @@ df <- df %>%
 ```
 
 
-### Report data structure after cleaning
-
+### Data structure after cleaning
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 glimpse(df)
 ```
 
-## Data Structure Observations
-
-The dataset consists of 205,370 rows (collision reports) and 28 columns (features). 
 
 
 #\
