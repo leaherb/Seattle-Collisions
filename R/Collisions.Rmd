@@ -7,9 +7,11 @@ This report explores **collision** reports from **Seattle, Washington, USA**.
 The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
-### Setup programming environment
+#
+# Setup programming environment
+#
 
-# Libraries
+# libraries
 library(data.table) # for renaming columns
 library(stringr)   # for 'word' function
 library(ggpubr)    # for 'ggarrange' function
@@ -24,10 +26,10 @@ library(reshape2)
 library(cowplot)
 library(gridExtra)
 
-# Global Settings
+# global settings
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
 
-# Standardize ggplot layers
+# ggplot layers
 mylayer_color <- scale_color_brewer(palette='Dark2', direction = 1)  
 mylayer_fillcolor <- scale_fill_brewer(palette='Dark2', direction = 1)
 mylayer_x90 <- theme(axis.text.x=element_text(angle=90, hjust=1))
@@ -38,14 +40,19 @@ mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust =
 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Load_data}
-### Load data
+#
+# Load data
+#
 
-# Manually toggle datafile as local or live source
+# manually toggle datafile as local or live source
 datafile = 'Collisions.csv'
 #datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
 
-# Import empty strings as NULL
+# import empty strings as NULL
 df = read.csv(datafile, na.strings=c(""," "), header=TRUE)
+# create backup during testing
+df_backup <- data.frame(df)
+#df <- data.frame(df_backup)
 ```
 
 # Assess
@@ -96,8 +103,8 @@ count_pct <- function(df) {
 ```
 
 ```{r}
+# Show count and % of column values
 cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
-
 lapply(df[cols], function(x) {
   x <- enquo(x)
   df %>% group_by(fct_explicit_na(!! x)) %>% count_pct
@@ -106,7 +113,8 @@ lapply(df[cols], function(x) {
 
 #### For columns that counts-of-things, what % of values are > 0?
 ```{r}
-cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT','INJURIES','SERIOUSINJURIES','FATALITIES')
+cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT',
+          'INJURIES','SERIOUSINJURIES','FATALITIES')
 as.data.frame(lapply(df[,cols], 
                      function(x){
                        length(which(x!=0))/length(x) *100
@@ -114,7 +122,7 @@ as.data.frame(lapply(df[,cols],
                      ))
 ```
 
-### Assessment Observations
+###\ Assessment Observations
 **May require cleaning:**
 
 * INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
@@ -129,13 +137,15 @@ as.data.frame(lapply(df[,cols],
 
 * SDOT_COLCODE contains categorical data but is datatype Integer.
 
-* UNDERINFL values include 0, 1, N, Y and NULL, > 95% 0, N or NULL.
+* Binary fields: 
 
-* INATTENTIONIND values are 'Y' or NULL, >86% NULL.
-
-* SPEEDING values are 'Y' or NULL, >95% NULL.
-
-* HITPARKEDCAR values are 'Y' or 'N', >95% 'N'
+  * INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
+  
+  * SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
+  
+  * HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
+  
+  * UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
 
 * Some key columns may not be of use in our analysis since we not, at this time,
   joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
@@ -211,7 +221,7 @@ df$Season <- factor(with(df,
 * Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
 * Shorten SEVERITYDESC values by removing ' Collision' from strings
 
-* Clean binary variables (Y or N, or NA)
+* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision.
 
 * Update SEVERITYCODE to 0 where NULL
 
@@ -255,13 +265,22 @@ df$SDOTtype <- factor(with(df,
 # shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
-# standardize DUI values 
+# make DUI binary (Y/N) 
 df$DUI <- as.factor(with(df,
      ifelse(DUI == 'N', 'N', 
      ifelse(DUI == 'Y', 'Y',  
      ifelse(DUI == '0', 'N', 
      ifelse(DUI == '1', 'Y',         
             ''))))))
+
+# binary columns: default NULL to 'N'
+cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
+  # must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+  # replace NAs with 'N'
+df <- df %>%
+  mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
+            ~replace_na(., 'N'))
 
 
 # replace empty strings with 'Unknown'
@@ -271,19 +290,21 @@ df$DUI <- as.factor(with(df,
 #df$WEATHER <- as.factor(df$WEATHER)
 ```
 
+
 ### Fix and trim
 
 * Change NULL SEVERITYCODE to 0
 
 * Remove columns not of interest at this time.
 ```{r}
+#
+# Fix and Trim
+#
 
-## Fix and Trim
-
-  # Change NULL SEVERITYCODE to 0
+# Change NULL SEVERITYCODE to 0
 df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
 
-  # remove columns not of interest at this time
+# remove columns not of interest at this time
 df <- df %>%
   select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
          -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
