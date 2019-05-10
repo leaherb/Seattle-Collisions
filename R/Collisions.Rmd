@@ -206,7 +206,7 @@ df$Season <- factor(with(df,
 
 * Rename columns
   + UNDERINFL -> DUI
-  + INATTENTIONID -> INATTENTION
+  + INATTENTIONID -> DISTRACTED
   
 * Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
 * Shorten SEVERITYDESC values by removing ' Collision' from strings
@@ -229,7 +229,7 @@ df$Season <- factor(with(df,
 
 df <- setnames(df,
          old=c('UNDERINFL', 'INATTENTIONIND'),
-         new=c('DUI'      , 'INATTENTION'),
+         new=c('DUI'      , 'DISTRACTED'),
          skip_absent = TRUE)
 
 
@@ -530,7 +530,7 @@ Observations:
 
 
 ### \
-How about driver diminished capacity and error (**DUI**,  **Inattention**, **Speeding**)?
+How about driver diminished capacity and error (**DUI**,  **DISTRACTED**, **Speeding**)?
 
 ```{r echo=FALSE, message=FALSE, error=FALSE}
 
@@ -540,7 +540,7 @@ pu <- ggplot(df,
   scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
 
 pi <- ggplot(df, 
-       aes(x = INATTENTION)) +
+       aes(x = DISTRACTED)) +
   geom_bar(aes(y = (..count..)/sum(..count..))) +
   scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
 
@@ -558,11 +558,11 @@ rm(pu, pi, ps)
 \
 Observations:
 
-* Positive **DUI** and **INATTENTION** were reported in approximately 11-13% of collisions. 
+* Positive **DUI** and **DISTRACTED** were reported in approximately 11-13% of collisions. 
 
 * Surprisingly, **SPEEDING** is infrequently noted in collision reports. 
 
-**Note:** **INATTENTION** and **SPEEDING** have only either a Y(es) or NULL value, suggesting that the lack of value (NULL) means these are not contributing factors. 
+**Note:** **DISTRACTED** and **SPEEDING** have only either a Y(es) or NULL value, suggesting that the lack of value (NULL) means these are not contributing factors. 
 
 However, fewer **DUI** are NULL, as most are marked with either (Y)es or (N)o values. It is not apparent whether the absence of a value is an oversight, if the presence of DUI was inconclusive, or if there is some other meaning. For the rest of this report, unless otherwise stated, NULL values for DUI are not included in our analysis when considering the DUI variable.
 
@@ -581,7 +581,7 @@ Most of the variables are categorical, describing:
 
 Boolean-type variables (Yes, No, or NULL) include:
 
-* Inattention 
+* DISTRACTED 
 * DUI
 * Speeding
 
@@ -656,7 +656,7 @@ Other changes:
 * I renamed two columns for easier programming and plot reading:
 
 + DUI <- UNDERINFL ("Whether or not a driver involved was under the influence of drugs or alcohol.")
-+ INATTENTION <- INATTENTIONID ("Whether or not collision was due to inattention. (Y/N)")
++ DISTRACTED <- INATTENTIONID ("Whether or not collision was due to inattention. (Y/N)")
 
 #\
 Bivariate Plots Section
@@ -667,7 +667,7 @@ Bivariate Plots Section
 set.seed(1965)
 df_samp <- sample_n(df[, c('SEVERITYCODE', 'SDOTtype','COLLISIONTYPE',
                            'ADDRTYPE', 'JUNCTIONTYPE', 'VEHCOUNT', 
-                           'PERSONCOUNT', 'DUI','WEATHER','INATTENTION',
+                           'PERSONCOUNT', 'DUI','WEATHER','DISTRACTED',
                            'ROADCOND','LIGHTCOND','SPEEDING','DayPart','Hour')], 10000)
 pairs.panels(df_samp, gap=0)
 rm(df_samp)
@@ -823,13 +823,13 @@ ggplot(data = create_summary(dfu, Year, DUI), aes(x = Year, y = perc, fill = fac
 However, when we plot the rate of DUI in perspective with all collisions, the DUI rate changes lose their punch and appear relatively steady.
 
 ###\
-Let's look at the same plot for INATTENTION. 
+Let's look at the same plot for DISTRACTED. 
 
-Although INATTENTION was not strongly correlated with other factors, we did see in the Univariate section that INATTENTION has a similar rate as DUI, so let's see how the INATTENTION rate changed over the years. 
+Although DISTRACTED was not strongly correlated with other factors, we did see in the Univariate section that DISTRACTED has a similar rate as DUI, so let's see how the DISTRACTED rate changed over the years. 
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, Inattention}
+```{r echo=FALSE, warning=FALSE, message=FALSE, DISTRACTED}
 
-ggplot(data = create_summary(df, Year, INATTENTION), aes(x = Year, y = perc, fill = INATTENTION)) +
+ggplot(data = create_summary(df, Year, DISTRACTED), aes(x = Year, y = perc, fill = DISTRACTED)) +
   scale_fill_brewer(palette="Dark2")  + 
   geom_bar(stat='identity')  +
   scale_y_continuous(breaks = seq(0, 100, 10) ) +
@@ -838,7 +838,7 @@ ggplot(data = create_summary(df, Year, INATTENTION), aes(x = Year, y = perc, fil
 
 ```
 
-There was a significant increase in INATTENTION being a factor in collisions, starting in the year 2013. Perhaps this is a result of the increase in the use of mobile devices, or directives for the SPD to record 'inattention' as a factor in collisions. More data is required to do any more analysis, outside the scope of this study.
+There was a significant increase in DISTRACTED being a factor in collisions, starting in the year 2013. Perhaps this is a result of the increase in the use of mobile devices, or directives for the SPD to record 'DISTRACTED' as a factor in collisions. More data is required to do any more analysis, outside the scope of this study.
 
 
 ###\
@@ -920,7 +920,7 @@ p1  +
 
 ```
 
-Surprisingly, it appears the % of collisions with **'Hits Pedestrian'** rose significantly around the years where there were fewer total collisions (2010-2011). Are there more pedestrians on the road, and fewer drivers? Maybe more inattentive pedestrians getting hit? That would be an interesting further study, but outside the scope of this project since INATTENTION does not specify who was inattentive.
+Surprisingly, it appears the % of collisions with **'Hits Pedestrian'** rose significantly around the years where there were fewer total collisions (2010-2011). Are there more pedestrians on the road, and fewer drivers? Maybe more inattentive pedestrians getting hit? That would be an interesting further study, but outside the scope of this project since DISTRACTED does not specify who was inattentive.
 
 It will be interesting to look more into the Hits Pedistrian increase. 
 
@@ -1005,7 +1005,7 @@ ggplot(data = dfu,
 
 The proportions **appear** similar between non-DUI and DUI, in that the more serious the Severity, the fewer the collisions count, whether DUI is true or not.
 
-What if we did look at the proportions instead of counts, will the proportions still appear the same, as suggested as in the plot above? While we're at it, let's compare proportions for the INATTENTION variable.
+What if we did look at the proportions instead of counts, will the proportions still appear the same, as suggested as in the plot above? While we're at it, let's compare proportions for the DISTRACTED variable.
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -1016,8 +1016,8 @@ p1 <- ggplot(data = create_summary(dfu, DUI, SEVERITYDESC),
   scale_y_continuous(labels = percent_format()) +
   labs(fill = 'SEVERITYDESC')  
 
-p2 <- ggplot(data = create_summary(df, INATTENTION, SEVERITYDESC), 
-       aes(x = INATTENTION, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
+p2 <- ggplot(data = create_summary(df, DISTRACTED, SEVERITYDESC), 
+       aes(x = DISTRACTED, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
   scale_fill_brewer(palette="Dark2")  + 
   geom_bar(stat='identity') +
   scale_y_continuous(labels = percent_format()) +
@@ -1039,17 +1039,17 @@ rm(legend_shared)
 
 The proportions of Severity for DUI are similar but not the same. Here we see there are more serious severities in DUI collisions.
 
-Interestingly, the rates of Severity between DUI and INATTENTION indicators are very similar, although Severity tends to be a worse in DUI collisions.
+Interestingly, the rates of Severity between DUI and DISTRACTED indicators are very similar, although Severity tends to be a worse in DUI collisions.
 
 Later, let's see if other factors come into play with the seriousness of DUI. For example, perhaps more DUI collisions occur at night, when people tend to inbibe. 
 
 ####\ 
-Out of curiosity, how often are DUI and INATTENTION both marked as factors on the **same** Collision report?
+Out of curiosity, how often are DUI and DISTRACTED both marked as factors on the **same** Collision report?
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-ggplot(data = create_summary(df, DUI, INATTENTION), 
-       aes(x = DUI, y = perc, fill = INATTENTION)) +
+ggplot(data = create_summary(df, DUI, DISTRACTED), 
+       aes(x = DUI, y = perc, fill = DISTRACTED)) +
   scale_fill_brewer(palette="Dark2")  + 
   geom_bar(stat='identity') +
   scale_y_continuous(labels = percent_format()) +
@@ -1059,9 +1059,9 @@ ggplot(data = create_summary(df, DUI, INATTENTION),
 
 ```
 
-Most reports with any DUI value ('Y' or 'N'), INATTENTION is not marked. All reports with no DUI value, INATTENTION also has no value.
+Most reports with any DUI value ('Y' or 'N'), DISTRACTED is not marked. All reports with no DUI value, DISTRACTED also has no value.
 
-This plot was just for curiosity, I will no longer pursue INATTENTION analysis.
+This plot was just for curiosity, I will no longer pursue DISTRACTED analysis.
 
 
 ### \
@@ -1245,7 +1245,7 @@ Comparing our two highest incident count years, 2005 & 2015, with our lowest yea
 ### Did you observe any interesting relationships between the other features \
 (not the main feature(s) of interest)?
 
-* INATTENTION increased significantly starting around 2013.
+* DISTRACTED increased significantly starting around 2013.
 
 * Most collisions happen in LIGHTCOND = 'Daylight', and during the afternoons.
 
@@ -1621,6 +1621,6 @@ I enjoyed the 'running commentary, stream of thought' nature of this data explor
 
 I was surprised that annual collision counts did not steadily rise over the years, but has a distinct rise/fall pattern. **Additional analysis** in future work should introduce Seattle Population estimates, to see how it correlates with collision data, and patterns of incident factors over time.
 
-I was not surprised there is an increase in the rate if 'Inattention' collisions, given the rise in the use of mobile devices. This may also be an interesting study for **future work**.  What would 'Innattention' patterns reveal with more study of how (and how often) mobile devices are used by car occupants as well as pedestrians and cyclists.
+I was not surprised there is an increase in the rate if 'DISTRACTED' collisions, given the rise in the use of mobile devices. This may also be an interesting study for **future work**.  What would 'Innattention' patterns reveal with more study of how (and how often) mobile devices are used by car occupants as well as pedestrians and cyclists.
 
 Looking into the SPD vs SDOT categorizations made it more real to me how important it is to know how data is collected and stored before it even gets to the analyst, otherwise it's difficult to make any ascertions about the data and what it represents. For example, are the SPD and SDOT categorizations of each incident a coordinated effort to describe an incident, or is data collection inconsistent or incomplete?
