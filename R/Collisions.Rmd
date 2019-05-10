@@ -55,18 +55,23 @@ glimpse(df)
 ```
 
 
-#### Are there columns with NULL values?
+#### Which columns have NULL values?
 ```{r}
 df_nulls <- sapply(df, function(x) sum(is.na(x)))
 as.data.frame(df_nulls[df_nulls>0]) %>% rename_at(1, ~'null_count')
 ```
-*Note:* all date and datetime columns have no NULL values.
+**Observation:** date and datetime columns do not have any NULLs.
 
 #### A few category columns have only 1 NULL, are they all from the same row?
 ```{r}
 df[is.na(df$SEVERITYCODE) | is.na(df$SDOT_COLCODE) | is.na(df$SDOT_COLDESC), 
    c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')]
 ```
+**Observation:** No, two rows are affected.
+```{r}
+df[is.na(df$SEVERITYCODE),]
+```
+**Observation:** The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
 #### What do Date/Time columns look like?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
@@ -78,9 +83,9 @@ writeLines('INCDTTM ...')
 head(df$INCDTTM, 20)
 ```
 
-#### For columns that counts-of-things, what % of values are non-zero?
+#### What do binary-esque columns look like?
 ```{r}
-# Function to find % of non-zero values in columns that count things.
+# Helper function to return freq of given column.
 count_pct <- function(df) {
   return(
     df %>% 
@@ -99,7 +104,7 @@ lapply(df[cols], function(x) {
   })
 ```
 
-#### What % of count columns are > 0?
+#### For columns that counts-of-things, what % of values are > 0?
 ```{r}
 cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT','INJURIES','SERIOUSINJURIES','FATALITIES')
 as.data.frame(lapply(df[,cols], 
@@ -109,7 +114,7 @@ as.data.frame(lapply(df[,cols],
                      ))
 ```
 
-### Observations
+### Assessment Observations
 **May require cleaning:**
 
 * INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
@@ -118,7 +123,9 @@ as.data.frame(lapply(df[,cols],
 
 * Minimum INCDATE = '2003-10-06T00:00:00.000Z'
 
-* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value.  
+* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
+
+* The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
 * SDOT_COLCODE contains categorical data but is datatype Integer.
 
@@ -128,7 +135,7 @@ as.data.frame(lapply(df[,cols],
 
 * SPEEDING values are 'Y' or NULL, >95% NULL.
 
-* HITPARKEDCAR values are 'Y' or 'N', >95% NULL.
+* HITPARKEDCAR values are 'Y' or 'N', >95% 'N'
 
 * Some key columns may not be of use in our analysis since we not, at this time,
   joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
@@ -137,16 +144,18 @@ as.data.frame(lapply(df[,cols],
 
 **Of interest:**
 
-* > 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
+*  more than 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
 
-* < 28% collisions have non-zero values INJURIES
+*  fewer than 28% collisions have non-zero values INJURIES
 
-* < 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
+*  fewer than 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
 
 
 
 #\
 Clean 
+
+### Date/Time columns
 
 * Change INCDATE datatype to Date
 
@@ -157,6 +166,7 @@ Clean
     + Hour (of day)
     + DayPart (Morning, Afternoon, Evening, Night)
     + Season (Spring, Summer, Fall, Winter)
+    
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Clean_data}
 # Date and Time
   # convert INCDATE to date datatype
@@ -192,8 +202,20 @@ df$Season <- factor(with(df,
             'Unknown'))))))
 ```
 
+### Simplify and standardize
+
+* Rename columns
+  + UNDERINFL -> DUI
+  + INATTENTIONID -> INATTENTION
+  
+* Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
+* Shorten SEVERITYDESC values by removing ' Collision' from strings
+
+* Clean binary variables (Y or N, or NA)
+
+* Update SEVERITYCODE to 0 where NULL
+
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
-# Simplify
 
 ## Rename Columns for easier plot reading 
 ### Footnote:
@@ -241,22 +263,25 @@ df$DUI <- as.factor(with(df,
      ifelse(DUI == '1', 'Y',         
             ''))))))
 
-```
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-# Trim 
 
 # replace empty strings with 'Unknown'
 # TODO double-check this logic now that empty strings are replaced with NA on import
-df$WEATHER <- as.character(df$WEATHER)
-df$WEATHER[df$WEATHER==''] <- 'Unknown'
-df$WEATHER <- as.factor(df$WEATHER)
+#df$WEATHER <- as.character(df$WEATHER)
+#df$WEATHER[df$WEATHER==''] <- 'Unknown'
+#df$WEATHER <- as.factor(df$WEATHER)
+```
 
+### Fix and trim
 
-## Trim
-  # trim where SEVERITYCODE = '' (should be only 1 or a few records)
-  #subset(df, SEVERITYCODE == '')
-df <- subset(df, SEVERITYCODE != '')
+* Change NULL SEVERITYCODE to 0
+
+* Remove columns not of interest at this time.
+```{r}
+
+## Fix and Trim
+
+  # Change NULL SEVERITYCODE to 0
+df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
 
   # remove columns not of interest at this time
 df <- df %>%
@@ -716,8 +741,9 @@ create_summary <- function(data, col1, col2) {
 }
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Create_Summary}
-
-# Create functions  to return dataframe of count and % of 1 or 2 given factors.
+#
+# Helper function to return dataframe of count and % of 1 or 2 given factors.
+#
 create_summary <- function(data, col1, col2) {
   col1 <- enquo(col1)
   col2 <- enquo(col2)
@@ -730,7 +756,9 @@ create_summary <- function(data, col1, col2) {
   result_summary
 }
 
-# Create function to return dataframe of count and % of 2 given factors.
+#
+# Helper function to return dataframe of count and % of 2 given factors.
+#
 create_summary_1d <- function(data, col1) {
   col1 <- enquo(col1)
   result_summary <- data %>%
