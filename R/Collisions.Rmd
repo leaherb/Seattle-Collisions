@@ -111,7 +111,7 @@ lapply(df[cols], function(x) {
   })
 ```
 
-#### For columns that counts-of-things, what % of values are > 0?
+#### For counts-of-things columns, what % of values are > 0?
 ```{r}
 cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT',
           'INJURIES','SERIOUSINJURIES','FATALITIES')
@@ -126,27 +126,16 @@ as.data.frame(lapply(df[,cols],
 **May require cleaning:**
 
 * INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
-
 * INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
-
 * Minimum INCDATE = '2003-10-06T00:00:00.000Z'
-
 * SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
-
 * The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
-
 * SDOT_COLCODE contains categorical data but is datatype Integer.
-
 * Binary fields: 
-
   * INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
-  
   * SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
-  
   * HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
-  
   * UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
-
 * Some key columns may not be of use in our analysis since we not, at this time,
   joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
   -EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
@@ -178,24 +167,23 @@ Clean
     + Season (Spring, Summer, Fall, Winter)
     
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Clean_data}
-# Date and Time
-  # convert INCDATE to date datatype
+# convert INCDATE to date datatype
 df$INCDATE <- as.Date(df$INCDATE)
 
-  # create year and month columns
+# create year and month columns
 df$Year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
 df$Month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
 
-  # trim records so all dates are part of a complete year's worth of reports
-  # TODO: move this to reporting logic where it makes sense to trim
+# trim records so all dates are part of a complete year's worth of reports
+# TODO: move this to reporting logic where it makes sense to trim
 #max(df$INCDATE)
 #df <- subset(df, Year < 2019 & Year > 2003)
 
-  # create Time and Hour columns
+# create Time and Hour columns
 df$Time <- as.POSIXct(word(df$INCDTTM, 2), format='%H:%M')
 df$Hour <- as.integer(substr(df$Time, 12, 13))
 
-  # categorize time of day 
+# categorize time of day 
 df$DayPart <- factor(with(df,
      ifelse(Hour >= 6 & Hour < 12, 'Morning',
      ifelse(Hour >= 12 & Hour < 17, 'Afternoon',
@@ -203,7 +191,7 @@ df$DayPart <- factor(with(df,
      ifelse(Hour >= 20 | Hour < 6, 'Night',
             'Unknown'))))))
 
-  # categorize Season
+# categorize Season
 df$Season <- factor(with(df,
      ifelse(Month %in% c('3','4','5'), 'Spring', 
      ifelse(Month %in% c('6','7','8'), 'Summer', 
@@ -217,12 +205,9 @@ df$Season <- factor(with(df,
 * Rename columns
   + UNDERINFL -> DUI
   + INATTENTIONID -> DISTRACTED
-  
 * Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
 * Shorten SEVERITYDESC values by removing ' Collision' from strings
-
 * Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision.
-
 * Update SEVERITYCODE to 0 where NULL
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
@@ -275,13 +260,14 @@ df$DUI <- as.factor(with(df,
 
 # binary columns: default NULL to 'N'
 cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
-  # must change factors to characters before replace_na
+# must change factors to characters before replace_na
 df[cols] <- lapply(df[cols], as.character)
-  # replace NAs with 'N'
+# replace NAs with 'N'
 df <- df %>%
   mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
             ~replace_na(., 'N'))
-
+# back to factors
+df[cols] <- lapply(df[cols], as.factor)
 
 # replace empty strings with 'Unknown'
 # TODO double-check this logic now that empty strings are replaced with NA on import
@@ -324,7 +310,7 @@ glimpse(df)
 #\
 Univariate Plots
 
-### Have the total number of collisions changed over the years?
+### How have the total number of collisions changed over the years?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -340,7 +326,6 @@ I had expected to see a steady increase in Seattle collisions, mirroring populat
 
 ###\
 Do collision frequencies change throughout the day?
-
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 ggplot(data = df %>% count(Hour), aes(x = Hour, y = n )) + geom_line() + ylim(0,15000)
@@ -579,13 +564,9 @@ rm(pu, pi, ps)
 \
 Observations:
 
-* Positive **DUI** and **DISTRACTED** were reported in approximately 11-13% of collisions. 
+* **DISTRACTED** is reported more often then **DUI**. 
 
 * Surprisingly, **SPEEDING** is infrequently noted in collision reports. 
-
-**Note:** **DISTRACTED** and **SPEEDING** have only either a Y(es) or NULL value, suggesting that the lack of value (NULL) means these are not contributing factors. 
-
-However, fewer **DUI** are NULL, as most are marked with either (Y)es or (N)o values. It is not apparent whether the absence of a value is an oversight, if the presence of DUI was inconclusive, or if there is some other meaning. For the rest of this report, unless otherwise stated, NULL values for DUI are not included in our analysis when considering the DUI variable.
 
 
 # \
@@ -600,7 +581,7 @@ Most of the variables are categorical, describing:
 * location factors
 * points in time
 
-Boolean-type variables (Yes, No, or NULL) include:
+Binary variables (Yes or No) include:
 
 * DISTRACTED 
 * DUI
@@ -626,7 +607,7 @@ Most collisions:
 
 ### What is/are the main feature(s) of interest in your dataset?
 
-The main features of interest for me are: 
+The main features of interes include: 
 
 * Time: are there trends across the years, or during an average day?
 * DUI: are there patterns to DUI collisions?
@@ -666,9 +647,9 @@ Other changes:
 
 * I deleted rows with Incident Dates before 2004 or after 2018. Original records outside that range contained only partial-year records.
 
-* There was a single record with a null value for SEVERITYCODE. I first verified there were no interesting anomalies in that record (like a large Fatality count), then deleted it. Otherwise, every graph would have included an additional tick on an axis, or an additional legend, just for that one record.
+* There was a single record with a null value for SEVERITYCODE. I first verified there were no counts of injuries or fatalities then set the value to 0. 
 
-* Original WEATHER values included both 'Unknown' and '' (empty space). I standardized by combining both as 'Unknown'.
+* Original WEATHER values included both 'Unknown' and NULL. I standardized by combining both as 'Unknown'.
 
 * Original SEVERITYDESC string values were postfixed with ' Collision', which made labels unnecessarily long, so I removed those postfixes.
 
@@ -730,6 +711,7 @@ df2 <- data.frame(lapply(df[,
 res <- cor(df2)
 round(res, 2)
 ```
+
 
 ####\
 Easy-reference plot
