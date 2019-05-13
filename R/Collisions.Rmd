@@ -292,12 +292,13 @@ df[cols] <- lapply(df[cols], as.factor)
 
 
 # factor columns: default NULL to 'Unknown'
-cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE')
+cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
 # must change factors to characters before replace_na
 df[cols] <- lapply(df[cols], as.character)
 # replace NAs with 'Unknown'
+# TODO: get list of vars from cols list
 df <- df %>%
-  mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE),
+  mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
             ~replace_na(., 'Unknown'))
 # back to factors
 df[cols] <- lapply(df[cols], as.factor)
