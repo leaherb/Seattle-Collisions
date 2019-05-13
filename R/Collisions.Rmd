@@ -49,36 +49,54 @@ datafile = 'Collisions.csv'
 #datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
 
 # import empty strings as NULL
-df = read.csv(datafile, na.strings=c(""," "), header=TRUE)
-# create backup during testing
-df_backup <- data.frame(df)
-#df <- data.frame(df_backup)
+df_raw = read.csv(datafile, na.strings=c(""," "), header=TRUE)
+# df = working dataset (to be cleaned); df_raw = data as loaded
+df <- data.frame(df_raw)
 ```
 
-# Assess
+# Assess raw data
 
 ```{r}
-glimpse(df)
+glimpse(df_raw)
 ```
 
+#### What are the min and max date / timestamps?
+```{r}
+subset(df, as.Date(df$INCDATE) == min(as.Date(df$INCDATE)), c(INCDATE,INCDTTM))
+subset(df, as.Date(df$INCDATE) == max(as.Date(df$INCDATE)), c(INCDATE,INCDTTM))
+```
 
 #### Which columns have NULL values?
 ```{r}
-df_nulls <- sapply(df, function(x) sum(is.na(x)))
-as.data.frame(df_nulls[df_nulls>0]) %>% rename_at(1, ~'null_count')
+# helper function, print columns with null value(s) and their counts
+count_nulls <- function(this_df) {
+  df_nulls <- sapply(df, function(x) sum(is.na(x)))
+  as.data.frame(df_nulls[df_nulls>0]) %>% rename_at(1, ~'null_count')
+}
+
+count_nulls(df_raw)
 ```
-**Observation:** date and datetime columns do not have any NULLs.
+**Observation:** date and datetime columns have no NULL values.
 
 #### A few category columns have only 1 NULL, are they all from the same row?
 ```{r}
-df[is.na(df$SEVERITYCODE) | is.na(df$SDOT_COLCODE) | is.na(df$SDOT_COLDESC), 
-   c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')]
+cols <-  c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')
+subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
 ```
 **Observation:** No, two rows are affected.
+
+#### Can we deduce a value for NULL SDOT_COLCODE given any other information?
+```{r}
+subset(df, is.na(SDOT_COLCODE))
+```
+**Observation:** No. There is very little information recorded. Interestingly, this record was the first recorded. It may have been a test insert? 
+
+
+#### Can we deduce a value for SEVERITYCODE where it is NULL?
 ```{r}
 df[is.na(df$SEVERITYCODE),]
 ```
-**Observation:** The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+**Observation:** The one reocrd with SEVERITYCODE=NA could be marked '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
 #### What do Date/Time columns look like?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
@@ -129,7 +147,8 @@ as.data.frame(lapply(df[,cols],
 * INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
 * Minimum INCDATE = '2003-10-06T00:00:00.000Z'
 * SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
-* The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+  * The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+  * The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert.
 * SDOT_COLCODE contains categorical data but is datatype Integer.
 * Binary fields: 
   * INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
@@ -278,7 +297,6 @@ df[cols] <- lapply(df[cols], as.factor)
 
 
 ### Fix and trim
-
 * Change NULL SEVERITYCODE to 0
 
 * Remove columns not of interest at this time.
@@ -287,7 +305,10 @@ df[cols] <- lapply(df[cols], as.factor)
 # Fix and Trim
 #
 
-# Change NULL SEVERITYCODE to 0
+# delete first record (by INCDATE)
+df <- df %>% filter(INCDATE > min(df$INCDATE))
+
+# change NULL SEVERITYCODE to 0
 df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
 
 # remove columns not of interest at this time
@@ -303,6 +324,7 @@ df <- df %>%
 ### Data structure after cleaning
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 glimpse(df)
+count_nulls(df)
 ```
 
 
