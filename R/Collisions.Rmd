@@ -62,7 +62,9 @@ glimpse(df_raw)
 
 #### What are the min and max date / timestamps?
 ```{r}
+# min
 subset(df, as.Date(df$INCDATE) == min(as.Date(df$INCDATE)), c(INCDATE,INCDTTM))
+# max
 subset(df, as.Date(df$INCDATE) == max(as.Date(df$INCDATE)), c(INCDATE,INCDTTM))
 ```
 
@@ -78,39 +80,38 @@ count_nulls(df_raw)
 ```
 **Observation:** date and datetime columns have no NULL values.
 
-#### A few category columns have only 1 NULL, are they all from the same row?
+#### A few columns have only 1 record with a NULL value, are they all from the same record?
 ```{r}
 cols <-  c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC','COLLISIONTYPE')
 subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
 ```
-**Observation:** No, two rows are affected.
+**Observation:** No.
 
-#### Can we deduce a value for NULL SDOT_COLCODE given any other information?
+#### Can we deduce a value for the NULL SDOT_COLCODE, given other values in the record?
 ```{r}
 subset(df, is.na(SDOT_COLCODE))
 ```
 **Observation:** No. There is very little information recorded. Interestingly, this record was the first recorded. It may have been a test insert? 
 
 
-#### Can we deduce a value for SEVERITYCODE where it is NULL?
+#### Can we deduce a value for the NULL SEVERITYCODE, given other values in the record?
 ```{r}
 df[is.na(df$SEVERITYCODE),]
 ```
-**Observation:** The one reocrd with SEVERITYCODE=NA could be marked '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
+**Observation:** The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
 #### What do Date/Time columns look like?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # Dates and Times
 writeLines('INCDATE ...')
 head(df$INCDATE, 20)
-paste('Date range: ', min(as.Date(df$INCDATE)), ' -> ', max(as.Date(df$INCDATE)))
 writeLines('INCDTTM ...')
 head(df$INCDTTM, 20)
 ```
 
 #### What do binary-esque columns look like?
 ```{r}
-# Helper function to return freq of given column.
+# Helper function to return value frequency of given column.
 count_pct <- function(df) {
   return(
     df %>% 
@@ -226,8 +227,9 @@ df$Season <- factor(with(df,
   + INATTENTIONID -> DISTRACTED
 * Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
 * Shorten SEVERITYDESC values by removing ' Collision' from strings
-* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision.
-* Update SEVERITYCODE to 0 where NULL
+* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
+* Change SEVERITYCODE to 0 where NULL
+* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -288,6 +290,20 @@ df <- df %>%
 # back to factors
 df[cols] <- lapply(df[cols], as.factor)
 
+
+# factor columns: default NULL to 'Unknown'
+cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE')
+# must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+# replace NAs with 'Unknown'
+df <- df %>%
+  mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE),
+            ~replace_na(., 'Unknown'))
+# back to factors
+df[cols] <- lapply(df[cols], as.factor)
+
+
+
 # replace empty strings with 'Unknown'
 # TODO double-check this logic now that empty strings are replaced with NA on import
 #df$WEATHER <- as.character(df$WEATHER)
@@ -297,8 +313,8 @@ df[cols] <- lapply(df[cols], as.factor)
 
 
 ### Fix and trim
+* Delete the first record by INCDATE (it appears to have been a test insert)
 * Change NULL SEVERITYCODE to 0
-
 * Remove columns not of interest at this time.
 ```{r}
 #
@@ -322,7 +338,7 @@ df <- df %>%
 
 
 ### Data structure after cleaning
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r}
 glimpse(df)
 count_nulls(df)
 ```
