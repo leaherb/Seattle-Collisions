@@ -10,14 +10,13 @@ The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/dataset
 #
 # Setup programming environment
 #
-
 # libraries
 library(data.table) # for renaming columns
-library(stringr)   # for 'word' function
-library(ggpubr)    # for 'ggarrange' function
+library(stringr)    # for 'word' function
+library(ggpubr)     # for 'ggarrange' function
 library(ggplot2)
 library(scales)
-library(GGally)    # for ggcorr function
+library(GGally)     # for ggcorr function
 library(dplyr)
 library(tidyverse)
 library(knitr)
@@ -30,12 +29,12 @@ library(gridExtra)
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
 
 # ggplot layers
-mylayer_color <- scale_color_brewer(palette='Dark2', direction = 1)  
-mylayer_fillcolor <- scale_fill_brewer(palette='Dark2', direction = 1)
-mylayer_x90 <- theme(axis.text.x=element_text(angle=90, hjust=1))
+mylayer_color <- scale_color_brewer(palette = 'Dark2', direction = 1)  
+mylayer_fillcolor <- scale_fill_brewer(palette = 'Dark2', direction = 1)
+mylayer_x90 <- theme(axis.text.x = element_text(angle = 90, hjust = 1))
 mylayer_hour_breaks <- scale_x_datetime(labels = date_format("%H:%M"), date_breaks = ('2 hours')) 
-mylayer_long_xlabel <- theme(axis.text.x=element_text(angle=90, hjust=1)) 
-mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust = -.2)
+mylayer_long_xlabel <- theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+mylayer_count_above <- geom_text(stat='count', aes(label = ..count..), vjust = -.2)
 ```
 
 
@@ -43,49 +42,47 @@ mylayer_count_above <- geom_text(stat = 'count', aes(label = ..count..), vjust =
 #
 # Load data
 #
-
-# manually toggle datafile as local or live source
-datafile = 'Collisions.csv'
+# toggle data source: local file or live site
+datafile = 'data/collisions.csv'
 #datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
 
-# import empty strings as NULL
-df_raw = read.csv(datafile, na.strings=c(""," "), header=TRUE)
-# df = working dataset (to be cleaned); df_raw = data as loaded
-df <- data.frame(df_raw)
+dfRaw = read.csv(datafile, na.strings=c("", " "), header=TRUE)
+df <- data.frame(dfRaw)   # df (working dataset); dfRaw (as loaded)
 ```
 
-# Assess raw data
+# Assess data
 
 ```{r}
-glimpse(df_raw)
+glimpse(dfRaw)
 ```
 
 #### What are the min and max INCDATEs?
 ```{r}
-# function to print min/max INCDATE of given dataframe
 print_date_range <- function(this_df){
-  this_df %>%
-    summarize(min_INCDATE = min(as.Date(this_df$INCDATE)),
-              max_INCDATE = max(as.Date(this_df$INCDATE)))
+    # Prints min and max INCDATE of this_df
+    this_df %>%
+        summarize(min_INCDATE = min(as.Date(this_df$INCDATE)),
+                  max_INCDATE = max(as.Date(this_df$INCDATE)))
 }
+
 print_date_range(df)
 ```
 
 #### Which columns have NULL values, and how many?
 ```{r}
-# helper function: print columns with NULLs and their counts
-count_nulls <- function(this_df) {
-  df_nulls <- sapply(df, function(x) sum(is.na(x)))
-  as.data.frame(df_nulls[df_nulls>0]) %>% rename_at(1, ~'null_count')
+print_null_count <- function(this_df) {
+    # Print columns with NULLs and their counts
+    dfNulls <- sapply(df, function(x) sum(is.na(x)))
+    as.data.frame(dfNulls[dfNulls > 0]) %>% rename_at(1, ~'null_count')
 }
 
-count_nulls(df_raw)
+print_null_count(dfRaw)
 ```
 **Observation:** date and datetime columns have no NULL values.
 
 #### Several columns have only 1 NULL, are they all from the same record?
 ```{r}
-cols <-  c('SEVERITYCODE','SDOT_COLCODE','SDOT_COLDESC')
+cols <-  c('SEVERITYCODE', 'SDOT_COLCODE', 'SDOT_COLDESC')
 subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
 ```
 **Observation:** No.
@@ -103,8 +100,8 @@ subset(df, is.na(SEVERITYCODE))
 ```
 **Observation:** The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
-#### What do Date/Time columns look like?
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+#### What do Date/time columns look like?
+```{r warning=FALSE, message=FALSE}
 writeLines('INCDATE ...')
 head(df$INCDATE, 20)
 writeLines('INCDTTM ...')
@@ -113,34 +110,42 @@ head(df$INCDTTM, 20)
 
 #### What do binary-esque columns look like?
 ```{r}
-# Helper function to return value frequency of given column.
-count_pct <- function(df) {
-  return(
-    df %>% 
-      tally() %>% 
-      mutate(freq = (n_pct = n / sum(n)))
-  )
+# helper function
+count_vals <- function(this_df) {
+    # Return value counts and proportions of this_df
+    return(
+        this_df %>% 
+            tally() %>% 
+            mutate(freq = (n_pct = n / sum(n)))
+    )
+}
+
+count_vals_cols <- function(this_df, cols) {
+    # Print value count and proportions of a list of columns
+    lapply(this_df[cols], function(x) {
+        x <- enquo(x)
+        df %>% 
+            group_by(fct_explicit_na(!! x)) %>% 
+            count_vals
+    })
 }
 ```
 
 ```{r}
-# Show count and % of column values
+# Print count and % of column values
 cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
-lapply(df[cols], function(x) {
-  x <- enquo(x)
-  df %>% group_by(fct_explicit_na(!! x)) %>% count_pct
-  })
+count_vals_cols(df, cols)
 ```
 
 #### For counts-of-things, what % are > 0?
 ```{r}
-cols <- c('PERSONCOUNT','PEDCOUNT','PEDCYLCOUNT','VEHCOUNT',
-          'INJURIES','SERIOUSINJURIES','FATALITIES')
+cols <- c('PERSONCOUNT', 'PEDCOUNT', 'PEDCYLCOUNT', 'VEHCOUNT',
+          'INJURIES', 'SERIOUSINJURIES', 'FATALITIES')
 as.data.frame(lapply(df[,cols], 
                      function(x){
-                       length(which(x!=0))/length(x) *100
-                       } 
-                     ))
+                         length(which(x != 0))/length(x) * 100
+                     } 
+))
 ```
 
 ###\ Assessment Observations
@@ -150,18 +155,18 @@ as.data.frame(lapply(df[,cols],
 * INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
 * Minimum INCDATE = '2003-10-06T00:00:00.000Z'
 * SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
-  * The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
-  * The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert.
+* The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+* The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert.
 * SDOT_COLCODE contains categorical data but is datatype Integer.
 * Binary fields: 
-  * INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
-  * SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
-  * HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
-  * UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
+* INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
+* SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
+* HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
+* UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
 * Some key columns may not be of use in our analysis since we not, at this time,
-  joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
-  -EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
-  
+joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
+-EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
+
 
 **Of interest:**
 *  more than 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
@@ -172,53 +177,49 @@ as.data.frame(lapply(df[,cols],
 #\
 Clean 
 
-### Date/Time columns
-
+### Create and clean Date/time columns
 * Change INCDATE datatype to Date
-
 * Create date/time columns:
-    + Year (YYYY)
-    + Month (1-12)
-    + Time (HH:MM)
-    + Hour (of day)
-    + DayPart (Morning, Afternoon, Evening, Night)
-    + Season (Spring, Summer, Fall, Winter)
-    
++ year (YYYY)
++ month (1-12)
++ time (HH:MM)
++ hour (of day)
++ day_part (Morning, Afternoon, Evening, Night)
++ season (Spring, Summer, Fall, Winter)
+
 ```{r Clean_data}
-# convert INCDATE to date datatype
 df$INCDATE <- as.Date(df$INCDATE)
+df$year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
+df$month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
+df$time <- as.POSIXct(word(df$INCDTTM, 2), format = '%H:%M')
+df$hour <- as.integer(substr(df$time, 12, 13))
+df <- df %>%
+    mutate(., day_part = with(., case_when(
+        (hour >= 6  & hour < 12) ~ 'Morning',
+        (hour >= 12 & hour < 17) ~ 'Afternoon',
+        (hour >= 17 & hour < 20) ~ 'Evening',
+        (hour >= 20 | hour < 6 ) ~ 'Night',
+        is.na(hour) ~ 'Unknown',
+        TRUE ~ 'Unknown'
+    )))
+df$day_part <- factor(df$day_part)
 
-# create year and month columns
-df$Year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
-df$Month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
-
-
-# create Time and Hour columns
-df$Time <- as.POSIXct(word(df$INCDTTM, 2), format='%H:%M')
-df$Hour <- as.integer(substr(df$Time, 12, 13))
-
-# categorize time of day 
-df$DayPart <- factor(with(df,
-     ifelse(Hour >= 6 & Hour < 12, 'Morning',
-     ifelse(Hour >= 12 & Hour < 17, 'Afternoon',
-     ifelse(Hour >= 17 & Hour < 20, 'Evening',
-     ifelse(Hour >= 20 | Hour < 6, 'Night',
-            'Unknown'))))))
-
-# categorize Season
-df$Season <- factor(with(df,
-     ifelse(Month %in% c('3','4','5'), 'Spring', 
-     ifelse(Month %in% c('6','7','8'), 'Summer', 
-     ifelse(Month %in% c('9','10','11'), 'Fall', 
-     ifelse(Month %in% c('12','1','2'), 'Winter', 
-            'Unknown'))))))
+df <- df %>%
+    mutate(., season = with(., case_when(
+        (month %in% c('3','4','5'))   ~ 'Spring',
+        (month %in% c('6','7','8'))   ~ 'Summer',
+        (month %in% c('9','10','11')) ~ 'Fall',
+        (month %in% c('12','1','2'))  ~ 'Winter',
+        is.na(hour) ~ 'Unknown',
+        TRUE ~ 'Unknown'
+        )))
+df$season <- factor(df$season)
 ```
 
 ### Simplify and standardize
-
-* Rename columns
-  + UNDERINFL -> DUI
-  + INATTENTIONID -> DISTRACTED
+* Rename columns (easier plot reading)
++ UNDERINFL -> DUI
++ INATTENTIONID -> DISTRACTED
 * Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
 * Shorten SEVERITYDESC values by removing ' Collision' from strings
 * Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
@@ -226,9 +227,7 @@ df$Season <- factor(with(df,
 * Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
 
 ```{r warning=FALSE, message=FALSE}
-
-## Rename Columns for easier plot reading 
-### Footnote:
+### TODO: move this justification to project documentation
 ### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
 
 ### Also, I was unsure whether I could use the 'DUI' alias for 'UNDERINFL'. In the same report, 'UNDERINFL' is short for 'Under the Influence of Alcohol and/or Drugs' and, without more detailed data available, is lumped together as ' DUI and/or Physical Control of the Vehicle while under the Influence'. 
@@ -237,41 +236,42 @@ df$Season <- factor(with(df,
 ### https://www.wsdot.wa.gov/mapsdata/crash/pdf/2015_Annual_Collision_Summary.pdf
 ### https://www.seattle.gov/Documents/Departments/SDOT/About/DocumentLibrary/Reports/2017_Traffic_Report.pdf
 
+# rename columns
 df <- setnames(df,
-         old=c('UNDERINFL', 'INATTENTIONIND'),
-         new=c('DUI'      , 'DISTRACTED'),
-         skip_absent = TRUE)
+               old=c('UNDERINFL', 'INATTENTIONIND'),
+               new=c('DUI'      , 'DISTRACTED'),
+               skip_absent = TRUE)
 
 
 # group SDOT collision types into fewer categories.
 # (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
 df$SDOTtype <- factor(with(df,
-     ifelse(SDOT_COLCODE <= 5, 'Hits Pedestrian', 
-     ifelse(SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12, 'Sideswipe', 
-     ifelse(SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14, 'Rear End', 
-     ifelse(SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23, 'From Same Direction', 
-     ifelse(SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25, 'Head On', 
-     ifelse(SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27, 'Sideswipe', 
-     ifelse(SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30, 'From Opposite Direction', 
-     ifelse(SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46, 'Cycle',
-     ifelse(SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51, 'Struck Object',
-     ifelse(SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57, 'Non-Collision', 
-     ifelse(SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72, 'Sideswipe', 
-     ifelse(SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74, 'Rear End', 
-     ifelse(SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82, 'Sideswipe', 
-     ifelse(SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84, 'Rear End', 
-            'Other Collision'))))))))))))))))
+                           ifelse(SDOT_COLCODE <= 5, 'Hits Pedestrian', 
+                                  ifelse(SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12, 'Sideswipe', 
+                                         ifelse(SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14, 'Rear End', 
+                                                ifelse(SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23, 'From Same Direction', 
+                                                       ifelse(SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25, 'Head On', 
+                                                              ifelse(SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27, 'Sideswipe', 
+                                                                     ifelse(SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30, 'From Opposite Direction', 
+                                                                            ifelse(SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46, 'Cycle',
+                                                                                   ifelse(SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51, 'Struck Object',
+                                                                                          ifelse(SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57, 'Non-Collision', 
+                                                                                                 ifelse(SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72, 'Sideswipe', 
+                                                                                                        ifelse(SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74, 'Rear End', 
+                                                                                                               ifelse(SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82, 'Sideswipe', 
+                                                                                                                      ifelse(SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84, 'Rear End', 
+                                                                                                                             'Other Collision'))))))))))))))))
 
 # shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
 # make DUI binary (Y/N) 
 df$DUI <- as.factor(with(df,
-     ifelse(DUI == 'N', 'N', 
-     ifelse(DUI == 'Y', 'Y',  
-     ifelse(DUI == '0', 'N', 
-     ifelse(DUI == '1', 'Y',         
-            ''))))))
+                         ifelse(DUI == 'N', 'N', 
+                                ifelse(DUI == 'Y', 'Y',  
+                                       ifelse(DUI == '0', 'N', 
+                                              ifelse(DUI == '1', 'Y',         
+                                                     ''))))))
 
 # binary columns: default NULL to 'N'
 cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
@@ -279,8 +279,8 @@ cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
 df[cols] <- lapply(df[cols], as.character)
 # replace NAs with 'N'
 df <- df %>%
-  mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
-            ~replace_na(., 'N'))
+    mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
+              ~replace_na(., 'N'))
 # back to factors
 df[cols] <- lapply(df[cols], as.factor)
 
@@ -292,8 +292,8 @@ df[cols] <- lapply(df[cols], as.character)
 # replace NAs with 'Unknown'
 # TODO: get list of vars from cols list
 df <- df %>%
-  mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
-            ~replace_na(., 'Unknown'))
+    mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
+              ~replace_na(., 'Unknown'))
 # back to factors
 df[cols] <- lapply(df[cols], as.factor)
 
@@ -316,21 +316,21 @@ df[cols] <- lapply(df[cols], as.factor)
 # delete first (test) record from 2003
 df_backup <- data.frame(df)
 
-df <- subset(df, Year != '2003')
+df <- subset(df, year != '2003')
 
 # change NULL SEVERITYCODE to 0
 df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
 
 # remove columns not of interest at this time
 df <- df %>%
-  select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
-         -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
-         -PEDROWNOTGRNT, -LOCATION, -HITPARKEDCAR, -ST_COLCODE, -ST_COLDESC,
-         -SDOT_COLDESC)
+    select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
+           -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
+           -PEDROWNOTGRNT, -LOCATION, -HITPARKEDCAR, -ST_COLCODE, -ST_COLDESC,
+           -SDOT_COLDESC)
 
 # Create df_trim_yrs to contain only complete year's worth of data
 # TODO: include logic, remove hardcode
-df_full_yrs <- subset(df, Year != '2019')
+df_full_yrs <- subset(df, year != '2019')
 
 # Verify
 print_date_range(df)
@@ -352,9 +352,9 @@ Univariate Plots
 ### How have the total number of collisions changed over the years?
 
 ```{r warning=FALSE, message=FALSE}
-ggplot(data = df_full_yrs, aes(x = Year)) +
-  geom_bar()  +
-  scale_y_continuous(breaks = seq(0, 18000, 2000))
+ggplot(data = df_full_yrs, aes(x = year)) +
+    geom_bar()  +
+    scale_y_continuous(breaks = seq(0, 18000, 2000))
 ```
 
 The distribution of collision frequency by year appears bimodal, peaking at **2005** and, to a lesser extent, **2015**, with a low at **2010** and again in **2018**. This plot hints at a possible 5-year pattern.
@@ -365,9 +365,9 @@ I had expected to see a steady increase in Seattle collisions, mirroring populat
 Do collision frequencies change throughout the day?
 
 ```{r  warning=FALSE, message=FALSE}
-ggplot(data = df %>% count(Hour), aes(x = Hour, y = n )) + 
-  geom_line() + 
-  ylim(0,15000)
+ggplot(data = df %>% count(hour), aes(x = hour, y = n )) + 
+    geom_line() + 
+    ylim(0,15000)
 ```
 
 It appears that collision counts tend to rise during commute hours, starting at the lowest point around 4am. 
@@ -386,11 +386,11 @@ What are the COLLISION types, according to the **SPD**?
 # TODO: print % instead of totals, x-axis on top
 ggplot(data = df,
        aes(x = reorder(COLLISIONTYPE, COLLISIONTYPE, function(x) length(x) * 1)  )) +
-  geom_bar(width = .95)   +
-  mylayer_count_above +
-  mylayer_long_xlabel +
-  labs(x = 'SPD COLLISIONTYPE', y = 'Count') +
-  coord_flip()
+    geom_bar(width = .95)   +
+    mylayer_count_above +
+    mylayer_long_xlabel +
+    labs(x = 'SPD COLLISIONTYPE', y = 'Count') +
+    coord_flip()
 ```
 
 ### \
@@ -401,11 +401,11 @@ What are the collision types as recorded by **SDOT**?
 
 ggplot(data = df,
        aes(x = reorder(SDOTtype, SDOTtype, function(x) length(x) * 1))) +
-  geom_bar(width = .95)  +
-  mylayer_count_above +
-  mylayer_long_xlabel +
-  labs(x = 'SDOTtype', y = 'Count')+
-  coord_flip()
+    geom_bar(width = .95)  +
+    mylayer_count_above +
+    mylayer_long_xlabel +
+    labs(x = 'SDOTtype', y = 'Count')+
+    coord_flip()
 ```
 
 \
@@ -424,11 +424,11 @@ severity_level_order <- c('Unknown','Property Damage Only', 'Injury', 'Serious I
 
 ggplot(df, 
        aes(x = factor(SEVERITYDESC, level = severity_level_order))) +
-  geom_bar(aes(y = (..count..)/sum(..count..))) +
-  scale_y_continuous(labels = percent_format()) +
-  labs(x = 'SEVERITYDESC', y = 'Percent')+
-  coord_flip()
-  
+    geom_bar(aes(y = (..count..)/sum(..count..))) +
+    scale_y_continuous(labels = percent_format()) +
+    labs(x = 'SEVERITYDESC', y = 'Percent')+
+    coord_flip()
+
 ```
 
 Observations:
@@ -450,21 +450,21 @@ Let's get a rough idea of how counts are distributed amongst these types of cate
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # TODO: flip so labels are readable
 dfshort <- subset(df, select = 
-                    c(ADDRTYPE, JUNCTIONTYPE, WEATHER, LIGHTCOND, ROADCOND, 
-                      Season, DayPart),
-                  (!is.na(DayPart)))
+                      c(ADDRTYPE, JUNCTIONTYPE, WEATHER, LIGHTCOND, ROADCOND, 
+                        season, day_part),
+                  (!is.na(day_part)))
 
 dfshort_counts <- dfshort %>%
-  group_by(ADDRTYPE, JUNCTIONTYPE, WEATHER, LIGHTCOND, ROADCOND, 
-                      Season, DayPart) %>%
-  summarise(n = n()) 
+    group_by(ADDRTYPE, JUNCTIONTYPE, WEATHER, LIGHTCOND, ROADCOND, 
+             season, day_part) %>%
+    summarise(n = n()) 
 
 dfshort_counts.long <-  melt(dfshort_counts, id.vars='n') 
 
 ggplot(data = dfshort_counts.long,
        aes(x = value, y = n)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  facet_wrap(~ variable, scales = 'free_x', ncol=2) 
+    geom_bar(stat = 'identity', position = 'dodge') +
+    facet_wrap(~ variable, scales = 'free_x', ncol=2) 
 
 ```
 
@@ -474,7 +474,7 @@ Observations:
 
 * Environmental conditions (**Weather**, **LightCond**, **RoadCond**) each have a dominant categories. Earlier we saw that most collisions happen in the middle of the day, so I suspect that is represented here (Clear, Daylight, Dry).
 
-* Time factor (**Season**, **DayPart**) frequencies a more evenly spread, with the highest frequency in Summer Afternoons.
+* time factor (**season**, **day_part**) frequencies a more evenly spread, with the highest frequency in Summer Afternoons.
 
 
 ### \
@@ -488,15 +488,15 @@ These are the quantitative variables, which are simply counts of things. Let's s
 dfshort <- subset(df, select = c(VEHCOUNT, PERSONCOUNT, PEDCOUNT, PEDCYLCOUNT, INJURIES, SERIOUSINJURIES, FATALITIES))
 
 dfshort_counts <- dfshort %>%
-  group_by(VEHCOUNT, PERSONCOUNT, PEDCOUNT, PEDCYLCOUNT, INJURIES, SERIOUSINJURIES, FATALITIES) %>%
-  summarise(n = n()) 
+    group_by(VEHCOUNT, PERSONCOUNT, PEDCOUNT, PEDCYLCOUNT, INJURIES, SERIOUSINJURIES, FATALITIES) %>%
+    summarise(n = n()) 
 
 dfshort_counts.long <-  melt(dfshort_counts, id.vars='n') 
 
 ggplot(data = dfshort_counts.long,
        aes(x = value, y = n)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  facet_wrap(~ variable, scales = 'free_x', ncol=2) 
+    geom_bar(stat = 'identity', position = 'dodge') +
+    facet_wrap(~ variable, scales = 'free_x', ncol=2) 
 
 ```
 
@@ -507,9 +507,9 @@ Since many of the **Counts of Things** have 0 value, plot them again but this ti
 
 ggplot(data = dfshort_counts.long,
        aes(x = value, y = n)) +
-  geom_bar(stat = 'identity', position = 'dodge') +
-  facet_wrap(~ variable, scales = 'free_x', ncol=2) +
-  scale_y_log10()
+    geom_bar(stat = 'identity', position = 'dodge') +
+    facet_wrap(~ variable, scales = 'free_x', ncol=2) +
+    scale_y_log10()
 
 rm(dfshort, dfshort_counts, dfshort_counts.long)
 
@@ -530,9 +530,9 @@ Let's look closer at Vehicle and Person counts ...
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 p1 <- ggplot(df, 
-       aes(x = VEHCOUNT)) +
-  geom_bar(aes(y = (..count..) )) +
-  scale_x_continuous(breaks = seq(0, 20, 2))
+             aes(x = VEHCOUNT)) +
+    geom_bar(aes(y = (..count..) )) +
+    scale_x_continuous(breaks = seq(0, 20, 2))
 
 p2 <- ggplot(data = df, aes(x = '', y = VEHCOUNT)) +  geom_boxplot(aes(alpha=.25)) + labs(x = '(boxplot)')
 
@@ -554,9 +554,9 @@ PERSONCOUNT
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 p1 <- ggplot(df, 
-       aes(x = PERSONCOUNT)) +
-  geom_bar(aes(y = (..count..) )) +
-  scale_x_continuous(breaks = seq(0, 90, 10))
+             aes(x = PERSONCOUNT)) +
+    geom_bar(aes(y = (..count..) )) +
+    scale_x_continuous(breaks = seq(0, 90, 10))
 
 p2 <- ggplot(data = df, aes(x = '', y = PERSONCOUNT)) +  geom_boxplot(aes(alpha=.25)) 
 
@@ -581,19 +581,19 @@ How about driver diminished capacity and error (**DUI**,  **DISTRACTED**, **Spee
 ```{r echo=FALSE, message=FALSE, error=FALSE}
 
 pu <- ggplot(df, 
-       aes(x = DUI)) +
-  geom_bar(aes(y = (..count..)/sum(..count..))) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
+             aes(x = DUI)) +
+    geom_bar(aes(y = (..count..)/sum(..count..))) +
+    scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
 
 pi <- ggplot(df, 
-       aes(x = DISTRACTED)) +
-  geom_bar(aes(y = (..count..)/sum(..count..))) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
+             aes(x = DISTRACTED)) +
+    geom_bar(aes(y = (..count..)/sum(..count..))) +
+    scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
 
 ps <- ggplot(df, 
-       aes(x = SPEEDING)) +
-  geom_bar(aes(y = (..count..)/sum(..count..))) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
+             aes(x = SPEEDING)) +
+    geom_bar(aes(y = (..count..)/sum(..count..))) +
+    scale_y_continuous(labels = percent_format(), limits=c(0,1)) 
 
 grid.arrange(pu, pi, ps, ncol=3)
 
@@ -649,7 +649,7 @@ Most collisions:
 
 The main features of interes include: 
 
-* Time: are there trends across the years, or during an average day?
+* time: are there trends across the years, or during an average day?
 * DUI: are there patterns to DUI collisions?
 * Collision Type: Possible disparities between SPD's and SDOT's classification of collision types.
 * Severity: What kind of collisions have higher Severity.
@@ -667,10 +667,10 @@ Also, geographical and environmental variables may help support the investigatio
 
 Yes. I created point-in-time variables to help make reporting and graphing easier:
 
-* Year
-* Season
-* Hour
-* DayPart (morning, afternoon, etc)
+* year
+* season
+* hour
+* day_part (morning, afternoon, etc)
 
 I created a new collision categorical variable (SDOTtype) to group common SDOT's collision types. For example, I combined 6 types of 'Sideswipe' collision types into one category called 'Sideswipe'.
 
@@ -710,7 +710,7 @@ set.seed(1965)
 df_samp <- sample_n(df[, c('SEVERITYCODE', 'SDOTtype','COLLISIONTYPE',
                            'ADDRTYPE', 'JUNCTIONTYPE', 'VEHCOUNT', 
                            'PERSONCOUNT', 'DUI','WEATHER','DISTRACTED',
-                           'ROADCOND','LIGHTCOND','SPEEDING','DayPart','Hour')], 10000)
+                           'ROADCOND','LIGHTCOND','SPEEDING','day_part','hour')], 10000)
 pairs.panels(df_samp, gap=0)
 rm(df_samp)
 
@@ -745,8 +745,8 @@ Correlations table
 # converting dtypes to integers, rqmt for ggcorr
 df2 <- data.frame(lapply(df[, 
                             c('DUI','VEHCOUNT','SEVERITYCODE','COLLISIONTYPE', 
-                           'WEATHER','PERSONCOUNT','ROADCOND','LIGHTCOND')],
-                  function(x) as.integer(x)))
+                              'WEATHER','PERSONCOUNT','ROADCOND','LIGHTCOND')],
+                         function(x) as.integer(x)))
 
 res <- cor(df2)
 round(res, 2)
@@ -772,15 +772,15 @@ dfu <- data.frame(subset(df, DUI %in% c('N','Y')))
 ```
 
 create_summary <- function(data, col1, col2) {
-  col1 <- enquo(col1)
-  col2 <- enquo(col2)
-  result_summary <- data %>%
-    group_by(!! col1, !! col2) %>%
-    summarise(count = n()) %>%
-    mutate(perc = count/sum(count)) 
-  mutate(label = percent(perc %>% round(5))
-  
-  result_summary
+col1 <- enquo(col1)
+col2 <- enquo(col2)
+result_summary <- data %>%
+group_by(!! col1, !! col2) %>%
+summarise(count = n()) %>%
+mutate(perc = count/sum(count)) 
+mutate(label = percent(perc %>% round(5))
+
+result_summary
 }
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Create_Summary}
@@ -788,28 +788,28 @@ create_summary <- function(data, col1, col2) {
 # Helper function to return dataframe of count and % of 1 or 2 given factors.
 #
 create_summary <- function(data, col1, col2) {
-  col1 <- enquo(col1)
-  col2 <- enquo(col2)
-  result_summary <- data %>%
-    group_by(!! col1, !! col2) %>%
-    summarise(count = n()) %>%
-    mutate(perc = count/sum(count),
-           label = percent(perc %>% round(5)))
-  
-  result_summary
+    col1 <- enquo(col1)
+    col2 <- enquo(col2)
+    result_summary <- data %>%
+        group_by(!! col1, !! col2) %>%
+        summarise(count = n()) %>%
+        mutate(perc = count/sum(count),
+               label = percent(perc %>% round(5)))
+    
+    result_summary
 }
 
 #
 # Helper function to return dataframe of count and % of 2 given factors.
 #
 create_summary_1d <- function(data, col1) {
-  col1 <- enquo(col1)
-  result_summary <- data %>%
-    group_by(!! col1) %>%
-    summarise(count = n()) %>%
-    mutate(perc = count/sum(count)) 
-  
-  result_summary
+    col1 <- enquo(col1)
+    result_summary <- data %>%
+        group_by(!! col1) %>%
+        summarise(count = n()) %>%
+        mutate(perc = count/sum(count)) 
+    
+    result_summary
 }
 
 ```
@@ -825,11 +825,11 @@ ggplot(data = create_summary(df, VEHCOUNT, COLLISIONTYPE),
        aes(x = VEHCOUNT,
            y = perc, 
            fill = factor(COLLISIONTYPE))) +
-  scale_fill_brewer(palette="Paired")  + 
-  geom_bar(stat='identity') +
-  labs(fill = 'SPD Collision Type', x = 'Vehicle Count') +
-  scale_x_continuous(breaks = seq(0, 15, 1)) +
-  mylayer_long_xlabel 
+    scale_fill_brewer(palette="Paired")  + 
+    geom_bar(stat='identity') +
+    labs(fill = 'SPD Collision Type', x = 'Vehicle Count') +
+    scale_x_continuous(breaks = seq(0, 15, 1)) +
+    mylayer_long_xlabel 
 ```
 
 It appears that 'Rear End' collisions involve noticably more vehicles in single incidents. This chart shows percentages, not counts, so we do not know from this plot just how many collisions involve these multiple vehicles.
@@ -840,10 +840,10 @@ Has the rate of DUI collisions changed over the years?
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 # Plot only the known DUI 
-ggplot(data = subset(create_summary(dfu, Year, DUI), DUI == 'Y'), aes(x = Year, y = perc)) +
-  scale_fill_brewer(palette="Dark2")  + 
-  geom_bar(stat='identity')  +
-  scale_y_continuous(labels = percent_format() ) 
+ggplot(data = subset(create_summary(dfu, year, DUI), DUI == 'Y'), aes(x = year, y = perc)) +
+    scale_fill_brewer(palette="Dark2")  + 
+    geom_bar(stat='identity')  +
+    scale_y_continuous(labels = percent_format() ) 
 
 ```
 
@@ -853,13 +853,13 @@ Interestingly, the lowest recorded DUI rate was the same year as our second-high
 
 # Put the Legend at Bottom  ... Or, duplicate the above plot but bring y-axis all the way up to 100%, that will keep this looking "univariate".
 
-ggplot(data = create_summary(dfu, Year, DUI), aes(x = Year, y = perc, fill = factor(DUI))) +
-  scale_fill_brewer(palette="Dark2")  + 
-  geom_bar(stat='identity')  +
-  scale_y_continuous(breaks = seq(0, 100, 10) ) +
-  scale_y_continuous(labels = percent_format() ) +
-  theme(legend.position = 'bottom', legend.direction = 'vertical') +
-  labs(fill = 'DUI')
+ggplot(data = create_summary(dfu, year, DUI), aes(x = year, y = perc, fill = factor(DUI))) +
+    scale_fill_brewer(palette="Dark2")  + 
+    geom_bar(stat='identity')  +
+    scale_y_continuous(breaks = seq(0, 100, 10) ) +
+    scale_y_continuous(labels = percent_format() ) +
+    theme(legend.position = 'bottom', legend.direction = 'vertical') +
+    labs(fill = 'DUI')
 
 ```
 
@@ -872,12 +872,12 @@ Although DISTRACTED was not strongly correlated with other factors, we did see i
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, DISTRACTED}
 
-ggplot(data = create_summary(df, Year, DISTRACTED), aes(x = Year, y = perc, fill = DISTRACTED)) +
-  scale_fill_brewer(palette="Dark2")  + 
-  geom_bar(stat='identity')  +
-  scale_y_continuous(breaks = seq(0, 100, 10) ) +
-  scale_y_continuous(labels = percent_format() ) +
-  theme(legend.position = 'bottom', legend.direction = 'vertical')
+ggplot(data = create_summary(df, year, DISTRACTED), aes(x = year, y = perc, fill = DISTRACTED)) +
+    scale_fill_brewer(palette="Dark2")  + 
+    geom_bar(stat='identity')  +
+    scale_y_continuous(breaks = seq(0, 100, 10) ) +
+    scale_y_continuous(labels = percent_format() ) +
+    theme(legend.position = 'bottom', legend.direction = 'vertical')
 
 ```
 
@@ -897,10 +897,10 @@ ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE),
        aes(x = SDOTtype,
            y = count, 
            fill = factor(COLLISIONTYPE))) +
-  scale_fill_brewer(palette="Paired")  + 
-  geom_bar(stat='identity') +
-  labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
-  mylayer_long_xlabel
+    scale_fill_brewer(palette="Paired")  + 
+    geom_bar(stat='identity') +
+    labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
+    mylayer_long_xlabel
 ```
 
 It's interesting that SPD reports categorizing a collision as 'Sideswipe', eventually gets categorized by the SDOT as 'Other Collision' or 'Rear End'. Also, it appears that SPD 'Pedestrian' labels frequently show up in SDOT records as 'Head On'. 
@@ -914,11 +914,11 @@ View the same information as the plot above, but show the percentages of COLLISI
 
 ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE), 
        aes(x = SDOTtype, y = perc, fill = factor(COLLISIONTYPE))) +
-  scale_fill_brewer(palette="Paired")  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
-  mylayer_long_xlabel
+    scale_fill_brewer(palette="Paired")  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
+    mylayer_long_xlabel
 
 ```
 
@@ -937,10 +937,10 @@ ggplot(data = create_summary(df, ADDRTYPE, JUNCTIONTYPE),
        aes(x = ADDRTYPE,
            y = count, 
            fill = factor(JUNCTIONTYPE))) +
-  scale_fill_brewer(palette = "Paired")  + 
-  geom_bar(stat='identity') +
-  labs(x = 'AddrType', fill = 'JunctionType') +
-  mylayer_long_xlabel
+    scale_fill_brewer(palette = "Paired")  + 
+    geom_bar(stat='identity') +
+    labs(x = 'AddrType', fill = 'JunctionType') +
+    mylayer_long_xlabel
 ```
 
 It appears that the the reportings of JUNCTIONTYPE and ADDRTYPE classifications are fairly in sync, that JUNCTIONTYPE is used as a sub-category to ADDRTYPE. 
@@ -951,15 +951,15 @@ Has the distribution of any Collision types **rates** changed over the years?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-p1 <- ggplot(data = create_summary(df, Year, SDOTtype), 
-       aes(x = Year, y = perc, fill = factor(SDOTtype))) +
-  geom_bar(stat='identity') +
-  labs(fill = 'SDOTtype')  +
-  scale_y_continuous(labels = percent_format()) +
-  scale_fill_brewer(palette = "Dark2")  
+p1 <- ggplot(data = create_summary(df, year, SDOTtype), 
+             aes(x = year, y = perc, fill = factor(SDOTtype))) +
+    geom_bar(stat='identity') +
+    labs(fill = 'SDOTtype')  +
+    scale_y_continuous(labels = percent_format()) +
+    scale_fill_brewer(palette = "Dark2")  
 
 p1  +
-  theme(legend.position = 'bottom') 
+    theme(legend.position = 'bottom') 
 
 ```
 
@@ -979,18 +979,18 @@ Adjusted **Hits Pedestrian**
 df$SDOTtype.Adjusted <- df$SDOTtype
 
 df <- df %>%
-  mutate(SDOTtype.Adjusted = case_when(
-    .$SDOTtype == 'Hits Pedestrian' ~ 'Hits Pedestrian',
-    .$COLLISIONTYPE == 'Pedestrian' ~ 'Hits Pedestrian',
-    .$PEDCOUNT >= 1 ~'Hits Pedestrian',
-    TRUE ~ as.character(SDOTtype)) )
+    mutate(SDOTtype.Adjusted = case_when(
+        .$SDOTtype == 'Hits Pedestrian' ~ 'Hits Pedestrian',
+        .$COLLISIONTYPE == 'Pedestrian' ~ 'Hits Pedestrian',
+        .$PEDCOUNT >= 1 ~'Hits Pedestrian',
+        TRUE ~ as.character(SDOTtype)) )
 
 ggplot(data = create_summary(subset(df, SDOTtype.Adjusted == 'Hits Pedestrian'), SDOTtype.Adjusted, SDOTtype), 
        aes(x = SDOTtype.Adjusted, y = perc, fill = factor(SDOTtype))) +
-  scale_fill_brewer(palette = "Dark2")  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  labs(fill = 'SDOTtype')  
+    scale_fill_brewer(palette = "Dark2")  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    labs(fill = 'SDOTtype')  
 ```
 
 Here we see approximately 25% of the records with some indication of Pedestrian involvement were originally classified as 'Head On'. This suggests that most pedestrians are hit with the front of a car, as opposed to sideswiped or rear-ended.
@@ -999,23 +999,23 @@ Here we see approximately 25% of the records with some indication of Pedestrian 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-p2 <- ggplot(data = create_summary(df, Year, SDOTtype.Adjusted), 
-       aes(x = Year, y = perc, fill = factor(SDOTtype.Adjusted))) +
-  geom_bar(stat='identity') +
-  labs(fill = 'SDOTtype.Adjusted') +
-  scale_y_continuous(labels = percent_format()) +
-  scale_fill_brewer(palette = "Dark2") 
+p2 <- ggplot(data = create_summary(df, year, SDOTtype.Adjusted), 
+             aes(x = year, y = perc, fill = factor(SDOTtype.Adjusted))) +
+    geom_bar(stat='identity') +
+    labs(fill = 'SDOTtype.Adjusted') +
+    scale_y_continuous(labels = percent_format()) +
+    scale_fill_brewer(palette = "Dark2") 
 
 mylayer_hline <- geom_hline(yintercept=.75)
 
 prow <- plot_grid(p1 + theme(legend.position='none') + mylayer_hline + 
-                    scale_x_discrete(breaks = seq(2004, 2018,4)),
+                      scale_x_discrete(breaks = seq(2004, 2018,4)),
                   p2 + theme(legend.position='none') + mylayer_hline + 
-                    scale_x_discrete(breaks = seq(2004, 2018,4)) + ylab(''), 
+                      scale_x_discrete(breaks = seq(2004, 2018,4)) + ylab(''), 
                   labels = c('','Adj->'),
                   hjust = .1,
                   nrow = 1
-                  )
+)
 legend_shared <- get_legend(p2 + theme(legend.position = 'bottom')) 
 plot_grid(prow, legend_shared, ncol = 1)
 
@@ -1039,10 +1039,10 @@ SEVERITY
 ggplot(data = dfu, 
        aes(x = factor(SEVERITYDESC, level = severity_level_order), 
            y = DUI, color=SEVERITYDESC)) +
-  geom_point(alpha = 0.5, size = 1, aes(size = 1), position = 'jitter') +
-  mylayer_color +
-  labs(y = 'DUI', x = 'SEVERITYDESC') +
-  coord_flip()
+    geom_point(alpha = 0.5, size = 1, aes(size = 1), position = 'jitter') +
+    mylayer_color +
+    labs(y = 'DUI', x = 'SEVERITYDESC') +
+    coord_flip()
 
 ```
 
@@ -1053,24 +1053,24 @@ What if we did look at the proportions instead of counts, will the proportions s
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 p1 <- ggplot(data = create_summary(dfu, DUI, SEVERITYDESC), 
-       aes(x = DUI, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
-  mylayer_fillcolor  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  labs(fill = 'SEVERITYDESC')  
+             aes(x = DUI, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
+    mylayer_fillcolor  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    labs(fill = 'SEVERITYDESC')  
 
 p2 <- ggplot(data = create_summary(df, DISTRACTED, SEVERITYDESC), 
-       aes(x = DISTRACTED, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
-  scale_fill_brewer(palette="Dark2")  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  labs(fill = 'SEVERITYDESC') 
+             aes(x = DISTRACTED, y = perc, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)))) +
+    scale_fill_brewer(palette="Dark2")  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    labs(fill = 'SEVERITYDESC') 
 
 
 prow <- plot_grid(p1 + theme(legend.position='none'),
                   p2 + theme(legend.position='none'),
                   nrow = 1
-                  )
+)
 
 legend_shared <- get_legend(p2 + theme(legend.position = 'bottom', legend.direction = 'vertical' ))
 
@@ -1093,12 +1093,12 @@ Out of curiosity, how often are DUI and DISTRACTED both marked as factors on the
 
 ggplot(data = create_summary(df, DUI, DISTRACTED), 
        aes(x = DUI, y = perc, fill = DISTRACTED)) +
-  scale_fill_brewer(palette="Dark2")  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  geom_text(aes(label = paste0(round(100*perc,2),"%")), 
-            position = position_stack(vjust = 0.5),
-            size = 3)
+    scale_fill_brewer(palette="Dark2")  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    geom_text(aes(label = paste0(round(100*perc,2),"%")), 
+              position = position_stack(vjust = 0.5),
+              size = 3)
 
 ```
 
@@ -1114,21 +1114,21 @@ Other DUI relationships
 
 # Function to plot bar graph of percentages given data and bar & fill columns.
 plot_under <- function(data, x_col, fill_col, mapping) {
-  x_col <- enquo(x_col)
-  fill_col <- enquo(fill_col)
-  
-  df_p <- data %>%
-    group_by(!! x_col, !! fill_col) %>%
-    summarise(count = n()) %>%
-    mutate(perc = count/sum(count)) 
-
-  p <-  ggplot(data = df_p, mapping) +
-    scale_fill_brewer(palette="Paired")  + 
-    geom_bar(stat='identity') +
-    scale_y_continuous(labels = percent_format()) +
-    labs(x='DUI', y='Percent') 
-  
-  p   # return the plot
+    x_col <- enquo(x_col)
+    fill_col <- enquo(fill_col)
+    
+    df_p <- data %>%
+        group_by(!! x_col, !! fill_col) %>%
+        summarise(count = n()) %>%
+        mutate(perc = count/sum(count)) 
+    
+    p <-  ggplot(data = df_p, mapping) +
+        scale_fill_brewer(palette="Paired")  + 
+        geom_bar(stat='identity') +
+        scale_y_continuous(labels = percent_format()) +
+        labs(x='DUI', y='Percent') 
+    
+    p   # return the plot
 }
 
 ``` 
@@ -1137,15 +1137,15 @@ plot_under <- function(data, x_col, fill_col, mapping) {
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 p1 <- plot_under(subset(dfu, LIGHTCOND != ''), DUI, LIGHTCOND, aes(x = DUI, y = perc, fill = factor(LIGHTCOND)))+
-  guides(fill=guide_legend(title='Light Condition')) + labs(title='Light') +
-  theme(axis.title.x = element_blank() )
+    guides(fill=guide_legend(title='Light Condition')) + labs(title='Light') +
+    theme(axis.title.x = element_blank() )
 
 p2 <- plot_under(subset(dfu, WEATHER != 'Other'), DUI, WEATHER, aes(x = DUI, y = perc, fill = factor(WEATHER)))+
-  guides(fill=guide_legend(title='Weather Description')) + labs(title = 'Weather')  +
-  theme(axis.title.x = element_blank(), axis.text.y = element_blank(), axis.title.y = element_blank()) 
+    guides(fill=guide_legend(title='Weather Description')) + labs(title = 'Weather')  +
+    theme(axis.title.x = element_blank(), axis.text.y = element_blank(), axis.title.y = element_blank()) 
 
 p3 <- plot_under(subset(dfu, SDOTtype != ''), DUI, SDOTtype, aes(x = DUI, y = perc, fill = factor(SDOTtype)))+
-  guides(fill=guide_legend(title='Collision Type')) + labs(title='Collision Type') 
+    guides(fill=guide_legend(title='Collision Type')) + labs(title='Collision Type') 
 
 grid.arrange(p1, p2, p3, ncol=2)
 
@@ -1189,14 +1189,14 @@ How are counts by LIGHTCOND spread out across the day?
 mylayer_hour_breaks <- scale_x_datetime(labels = date_format("%H:%M"), date_breaks = ('2 hours')) 
 
 time_counts <- df %>%
-  count(DayPart, Hour, LIGHTCOND)
+    count(day_part, hour, LIGHTCOND)
 
 # Identify what part of the day the crime occurred
-ggplot(data = subset(time_counts, !is.na(Hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))),
-       aes(x = Hour, y = n, color = LIGHTCOND), size = 1.5, alpha = 0.6) +
-  geom_point(alpha = .6, size = 3) +
-  facet_wrap(~ DayPart, scales = 'free_x', ncol=2)  +
-  mylayer_color 
+ggplot(data = subset(time_counts, !is.na(hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))),
+       aes(x = hour, y = n, color = LIGHTCOND), size = 1.5, alpha = 0.6) +
+    geom_point(alpha = .6, size = 3) +
+    facet_wrap(~ day_part, scales = 'free_x', ncol=2)  +
+    mylayer_color 
 ```
 
 Higher counts by LIGHTCOND at certain parts of the day hold no surprises: collisions in afternoons will naturally tend to be during Daylight.
@@ -1211,21 +1211,21 @@ Let's look at the same data, in a line graph format. It may be easier to see wha
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-time_perc <- subset(df, !is.na(Hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))) %>%
-  group_by(Hour, LIGHTCOND) %>%
-  summarise(count = n()) %>%
-  mutate(perc = count/sum(count))
+time_perc <- subset(df, !is.na(hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))) %>%
+    group_by(hour, LIGHTCOND) %>%
+    summarise(count = n()) %>%
+    mutate(perc = count/sum(count))
 
 
 ggplot(data = time_perc,
-       aes(x = Hour, y = perc, color = LIGHTCOND)) +
-  geom_line(size = 2) +
-  mylayer_color +
-  scale_y_continuous(labels = function(x) paste0(x*100, "%"))
+       aes(x = hour, y = perc, color = LIGHTCOND)) +
+    geom_line(size = 2) +
+    mylayer_color +
+    scale_y_continuous(labels = function(x) paste0(x*100, "%"))
 
 ```
 
-Again, no surprises here ... LIGHTCOND and Hour are paired.
+Again, no surprises here ... LIGHTCOND and hour are paired.
 
 ####\
 Is there a change in hourly-collision patterns between the 2-highest and 1-lowest years?
@@ -1233,14 +1233,14 @@ Is there a change in hourly-collision patterns between the 2-highest and 1-lowes
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 by_year_hour <- df %>%
-  group_by(Year, Hour) %>%
-  summarise(count = n()) 
+    group_by(year, hour) %>%
+    summarise(count = n()) 
 
 
-ggplot(data = subset(by_year_hour, Year %in% c(2005, 2010, 2015)),
-       aes(x = Hour, y = count)) +
-  geom_line(aes(color = Year), size = 1) +
-  ylim(0,1200) 
+ggplot(data = subset(by_year_hour, year %in% c(2005, 2010, 2015)),
+       aes(x = hour, y = count)) +
+    geom_line(aes(color = year), size = 1) +
+    ylim(0,1200) 
 
 ```
 
@@ -1292,7 +1292,7 @@ Comparing our two highest incident count years, 2005 & 2015, with our lowest yea
 
 * Most collisions happen in LIGHTCOND = 'Daylight', and during the afternoons.
 
-* I'm surprised that LIGHTCOND did not have a higher score with Hour in the correlation tables, and had a weak relationship with DayPart. 
+* I'm surprised that LIGHTCOND did not have a higher score with hour in the correlation tables, and had a weak relationship with day_part. 
 
 * It appears that JUNCTIONTYPE is a subset of ADDRTYPE.
 
@@ -1324,11 +1324,11 @@ How are DUI, LIGHTCOND, and SEVERITYCODE related?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 ggplot(dfu, aes(x = as.factor(DUI), y = LIGHTCOND)) + 
-  geom_jitter(alpha = 0.5, aes(color = SEVERITYDESC)) +
-  scale_size_manual(values = c(1,3,5,7))   +
-  mylayer_color +
-  mylayer_x90 +
-  labs(x = 'DUI')  
+    geom_jitter(alpha = 0.5, aes(color = SEVERITYDESC)) +
+    scale_size_manual(values = c(1,3,5,7))   +
+    mylayer_color +
+    mylayer_x90 +
+    labs(x = 'DUI')  
 ```
 
 There are differences between DUI and non-DUI collisions as they relate to both Light and Severity:
@@ -1342,21 +1342,21 @@ How about we simplify and look at the part of the day instead of the LIGHTCOND, 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-ggplot(data = subset(dfu, !is.na(DayPart) & SEVERITYDESC %in% c('Injury','Serious Injury','Fatality')), 
-       aes(x = factor(DayPart, level = c('Night','Evening','Afternoon','Morning')), 
+ggplot(data = subset(dfu, !is.na(day_part) & SEVERITYDESC %in% c('Injury','Serious Injury','Fatality')), 
+       aes(x = factor(day_part, level = c('Night','Evening','Afternoon','Morning')), 
            y = DUI) 
-       ) +
-  geom_point(position = 'jitter', 
-             alpha = .5,
-             aes(
-               size=factor(SEVERITYDESC, level=(severity_level_order)),
-               color=factor(SEVERITYDESC, level=(severity_level_order))
-                )
-             ) +
-  #scale_color_manual(values=c("#b2e4cf", "#e4e4b2",'#da897c')) +
-  labs(y = 'DUI',  x = '', color = '', size = '') +
-  guides(color=guide_legend(), size = guide_legend()) +
-  coord_flip()
+) +
+    geom_point(position = 'jitter', 
+               alpha = .5,
+               aes(
+                   size=factor(SEVERITYDESC, level=(severity_level_order)),
+                   color=factor(SEVERITYDESC, level=(severity_level_order))
+               )
+    ) +
+    #scale_color_manual(values=c("#b2e4cf", "#e4e4b2",'#da897c')) +
+    labs(y = 'DUI',  x = '', color = '', size = '') +
+    guides(color=guide_legend(), size = guide_legend()) +
+    coord_flip()
 
 ```
 
@@ -1365,22 +1365,22 @@ How does the rate of DUI collisions changes compare to total collisions over the
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 p2 <- 
-  geom_bar(data = df %>% count(Year), 
-           aes(x = Year, y = n),
-           stat = 'identity')
+    geom_bar(data = df %>% count(year), 
+             aes(x = year, y = n),
+             stat = 'identity')
 
-p1 <- geom_line(data = subset(create_summary(dfu, Year, DUI), DUI == 'Y'), 
-                aes(x = Year, y = (perc)*100000, group = 1), color = 'tomato', size = 1.5)  
+p1 <- geom_line(data = subset(create_summary(dfu, year, DUI), DUI == 'Y'), 
+                aes(x = year, y = (perc)*100000, group = 1), color = 'tomato', size = 1.5)  
 
 ggplot() +
-  p2 +
-  p1 +
-  scale_x_discrete(breaks = c('2004','2006','2008','2010','2012','2014','2016','2018')) +
-  scale_y_continuous('Count of All Collisions', sec.axis = sec_axis(~ ((./100000)), name ='% of Collisions DUI'))+
-  theme(axis.text.y.right = element_text(color = 'tomato'),
-        axis.title.y.right = element_text(color = 'tomato'),
-        axis.line.y.right = element_line(color = "tomato"), 
-        axis.ticks.y.right = element_line(color = "tomato"))
+    p2 +
+    p1 +
+    scale_x_discrete(breaks = c('2004','2006','2008','2010','2012','2014','2016','2018')) +
+    scale_y_continuous('Count of All Collisions', sec.axis = sec_axis(~ ((./100000)), name ='% of Collisions DUI'))+
+    theme(axis.text.y.right = element_text(color = 'tomato'),
+          axis.title.y.right = element_text(color = 'tomato'),
+          axis.line.y.right = element_line(color = "tomato"), 
+          axis.ticks.y.right = element_line(color = "tomato"))
 
 ```
 
@@ -1396,25 +1396,25 @@ When DUI's happen, compared to when Injuries happen.
 dfi <- subset(df, SEVERITYDESC %in% c('Injury','Serious Injury','Fatality'))
 
 p_bar <-
-  geom_bar(data = dfi, 
-       aes(x = Hour, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)), y = (..count..) )) 
-  
+    geom_bar(data = dfi, 
+             aes(x = hour, fill = factor(SEVERITYDESC, levels=rev(severity_level_order)), y = (..count..) )) 
+
 # DUI by hour data
 dfh <- subset(df, DUI == 'Y') %>%
-  group_by(Hour) %>%
-  summarize(count = n())
+    group_by(hour) %>%
+    summarize(count = n())
 
 p_line <-
-  geom_line(data = dfh, aes(x = Hour, y = count, linetype = 'DUIs'), size = 1.5) 
+    geom_line(data = dfh, aes(x = hour, y = count, linetype = 'DUIs'), size = 1.5) 
 
 
 # Now combine 2 plots
 ggplot() +
-  p_bar +
-  p_line +
-  scale_x_continuous(breaks = seq(0, 23, 2)) +
-  labs(fill = 'SEVERITYDESC') +
-  scale_fill_manual(values=c('#da897c', "#e4e4b2","#b2e4cf"))
+    p_bar +
+    p_line +
+    scale_x_continuous(breaks = seq(0, 23, 2)) +
+    labs(fill = 'SEVERITYDESC') +
+    scale_fill_manual(values=c('#da897c', "#e4e4b2","#b2e4cf"))
 
 rm(dfi, dfh)
 
@@ -1431,20 +1431,20 @@ What kind of collisions involve fatalities, and on average how many annually?
 ```{r echo=FALSE, warning=FALSE, message=FALSE, MultiBoxes}
 
 fatality_counts <- 
-  subset(df, SEVERITYDESC %in% c('Fatality')) %>%
-  group_by(Year, SDOTtype.Adjusted) %>%
-  summarise(total = sum(FATALITIES))
+    subset(df, SEVERITYDESC %in% c('Fatality')) %>%
+    group_by(year, SDOTtype.Adjusted) %>%
+    summarise(total = sum(FATALITIES))
 
 p_f <- 
-  geom_boxplot(data = fatality_counts,
-               aes(x = '', y = total,
-                   color = SDOTtype.Adjusted))
+    geom_boxplot(data = fatality_counts,
+                 aes(x = '', y = total,
+                     color = SDOTtype.Adjusted))
 
 ggplot() +  p_f +
-  facet_wrap(~ SDOTtype.Adjusted)  +
-  theme(legend.position = 'bottom', legend.direction = 'horizontal') +
-  labs(title = 'Annual Fatality Counts by SDOT Collision Type', x = '', color = 'SDOTtype.Adjusted') +
-  mylayer_color 
+    facet_wrap(~ SDOTtype.Adjusted)  +
+    theme(legend.position = 'bottom', legend.direction = 'horizontal') +
+    labs(title = 'Annual Fatality Counts by SDOT Collision Type', x = '', color = 'SDOTtype.Adjusted') +
+    mylayer_color 
 ```
 
 In collisions that involved fatalities, on average most were 'Hits Pedestrian' and 'Other Collision'. There were a few outliers in each of 'Sideswipe' and 'Other Collision', with more than 2x the annual average fatalities in certain years. Not surprisingly, there were the fewest fatalities in 'Struck Object'.
@@ -1454,20 +1454,20 @@ More analysis would be required to figure out what 'Other Collision' involves. L
 ```{r echo=FALSE, warning=FALSE, message=FALSE, MultiBoxes2}
 
 fatality_counts2 <- 
-  subset(df, SEVERITYDESC %in% c('Fatality') & SDOTtype.Adjusted %in% c('Other Collision')) %>%
-  group_by(Year, COLLISIONTYPE) %>%
-  summarise(total = sum(FATALITIES))
+    subset(df, SEVERITYDESC %in% c('Fatality') & SDOTtype.Adjusted %in% c('Other Collision')) %>%
+    group_by(year, COLLISIONTYPE) %>%
+    summarise(total = sum(FATALITIES))
 
 p_f2 <- 
-  geom_boxplot(data = fatality_counts2,
-               aes(x = '', y = total,
-                   color = COLLISIONTYPE))
+    geom_boxplot(data = fatality_counts2,
+                 aes(x = '', y = total,
+                     color = COLLISIONTYPE))
 
 ggplot() +  p_f2 +
-  facet_wrap(~ COLLISIONTYPE)  +
-  theme(legend.position = 'bottom', legend.direction = 'horizontal') +
-  labs(title = 'Annual Fatality Counts by SPD Collision Type WHEN SDOT is "Other"', x = '', color = 'SDOTtype.Adjusted') +
-  mylayer_color 
+    facet_wrap(~ COLLISIONTYPE)  +
+    theme(legend.position = 'bottom', legend.direction = 'horizontal') +
+    labs(title = 'Annual Fatality Counts by SPD Collision Type WHEN SDOT is "Other"', x = '', color = 'SDOTtype.Adjusted') +
+    mylayer_color 
 ```
 
 
@@ -1479,20 +1479,20 @@ In the Bivariate section, we explored the SPD's Collision relationship with VEHC
 ```{r echo=FALSE, warning=FALSE, message=FALSE, SPDvsSDOTandVEHCOUNT}
 
 p1 <- ggplot(data = create_summary(df, VEHCOUNT, COLLISIONTYPE),
-       aes( fill = factor(COLLISIONTYPE))) +
-      geom_bar(aes(x = VEHCOUNT, y = perc), stat='identity') +
-      scale_fill_brewer(palette="Paired")  +
-      labs(fill = 'SPD Collision Type', x = 'Vehicle Count') +
-      scale_x_continuous(breaks = seq(0,15,1)) +
-      mylayer_long_xlabel 
+             aes( fill = factor(COLLISIONTYPE))) +
+    geom_bar(aes(x = VEHCOUNT, y = perc), stat='identity') +
+    scale_fill_brewer(palette="Paired")  +
+    labs(fill = 'SPD Collision Type', x = 'Vehicle Count') +
+    scale_x_continuous(breaks = seq(0,15,1)) +
+    mylayer_long_xlabel 
 
 p2 <- ggplot(data = create_summary(df, VEHCOUNT, SDOTtype),
-       aes( fill = factor(SDOTtype))) +
-      geom_bar(aes(x = VEHCOUNT, y = perc), stat='identity') +
-      scale_fill_brewer(palette="Paired")  +
-      labs(fill = 'SDOT Collision Type', x = 'Vehicle Count') +
-      scale_x_continuous(breaks = seq(0,15,1)) +
-      mylayer_long_xlabel 
+             aes( fill = factor(SDOTtype))) +
+    geom_bar(aes(x = VEHCOUNT, y = perc), stat='identity') +
+    scale_fill_brewer(palette="Paired")  +
+    labs(fill = 'SDOT Collision Type', x = 'Vehicle Count') +
+    scale_x_continuous(breaks = seq(0,15,1)) +
+    mylayer_long_xlabel 
 
 grid.arrange(p1, p2, ncol=1)
 
@@ -1508,7 +1508,7 @@ looking at your feature(s) of interest?
 
 The DUI / Light Condition / Severity relationship is strong: DUI collisions tend to happen when 'Street Lights - On', and they also tend to have higher severities. 
 
-Also, DUI / Time of Day / Severity relationships are strong, in that LIGHTCOND and Time are strongly paired. 
+Also, DUI / time of Day / Severity relationships are strong, in that LIGHTCOND and time are strongly paired. 
 
 It appears that if there is an incident between approximately 12am and 4am, it will most likely involve a DUI.
 
@@ -1526,40 +1526,40 @@ I am surprised to see that (generally) when annual DUI rates are up, total colli
 
 # Final Plots and Summary
 
-### Plot One - Trends in Time
+### Plot One - Trends in time
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # Data
 by_year <- df %>%
-  group_by(Year) %>%
-  summarise(count = n()) %>%
-  mutate(highlight = ifelse( Year %in% c('2005','2015'), 'high', ifelse( Year == '2010', 'low', 'mid')))
+    group_by(year) %>%
+    summarise(count = n()) %>%
+    mutate(highlight = ifelse( year %in% c('2005','2015'), 'high', ifelse( year == '2010', 'low', 'mid')))
 
 # Formatting
 mylayer_subtitle <- theme(plot.subtitle = element_text('size' = 14, face = 'bold')) 
 
-# By Year plot
+# By year plot
 p1 <- ggplot(data = by_year, 
-             aes(x = Year, y = count, fill = highlight)) +
-  geom_bar(stat='identity') +
-  scale_fill_manual(values = c( 'low'='grey90', 'high' = 'grey40', 'mid' = 'grey70'), guide = FALSE) +
-  scale_x_discrete(breaks =c('2005', '2010', '2015')) +
-  labs(y = '', subtitle = 'By Year') +
-  background_grid() +
-  mylayer_subtitle
-  
-# By Time plot
-g1 <- geom_point(data = df %>% count(Hour), aes(x = Hour, y = n ))
-g2 <- geom_smooth(data = df %>% count(Hour), aes(x = Hour, y = n ), color='grey40')
-g3 <- geom_line(data = df %>% count(Hour), aes(x = Hour, y = n )) 
+             aes(x = year, y = count, fill = highlight)) +
+    geom_bar(stat='identity') +
+    scale_fill_manual(values = c( 'low'='grey90', 'high' = 'grey40', 'mid' = 'grey70'), guide = FALSE) +
+    scale_x_discrete(breaks =c('2005', '2010', '2015')) +
+    labs(y = '', subtitle = 'By year') +
+    background_grid() +
+    mylayer_subtitle
+
+# By time plot
+g1 <- geom_point(data = df %>% count(hour), aes(x = hour, y = n ))
+g2 <- geom_smooth(data = df %>% count(hour), aes(x = hour, y = n ), color='grey40')
+g3 <- geom_line(data = df %>% count(hour), aes(x = hour, y = n )) 
 
 p2 <- ggplot() +  g2  + ylim(0,16000) +
-  labs(x = 'Time (Hour on a 24-hour clock)',
-       y = '',
-       subtitle = 'By Time of Day') +
-  theme(axis.text.y = element_blank()) +
-  background_grid() +
-  mylayer_subtitle
+    labs(x = 'time (hour on a 24-hour clock)',
+         y = '',
+         subtitle = 'By time of Day') +
+    theme(axis.text.y = element_blank()) +
+    background_grid() +
+    mylayer_subtitle
 
 # Combine plots
 mytitle = text_grob('Seattle Collision Incident Trends, 2004-2018\n', just = 'center', size = 16, face = 'bold', rot = 0)
@@ -1571,19 +1571,19 @@ grid.arrange(p1, p2, ncol=2,
 
 
 ### Description One
- 
-I wanted to introduce the Seattle Collisions dataset with a simple visual illustrating collision incident trends over time (across the Years, and through the course of an average day.)
 
-The **By Year** plot shows the presence of a repeated rise-and-fall trend, highlighting 2 peak years (2005 and 2015) and 1 valley year (2010).
+I wanted to introduce the Seattle Collisions dataset with a simple visual illustrating collision incident trends over time (across the years, and through the course of an average day.)
 
-The **By Time of Day** presents a simple trend of collision frequencies throughout any given day, with a trend of increasing incidents from morning until afternoon commute hours.
+The **By year** plot shows the presence of a repeated rise-and-fall trend, highlighting 2 peak years (2005 and 2015) and 1 valley year (2010).
+
+The **By time of Day** presents a simple trend of collision frequencies throughout any given day, with a trend of increasing incidents from morning until afternoon commute hours.
 
 #### Design justifications
 I chose to use a 2-column grid, as opposed to a 1-column/2-row grid, so the y-axis would be taller. I did this because the range of incident counts (y-axis) is fairly large (up to 15,000), and wanted the plot to represent the large change in counts from year to year. If I used a 1-column grid, the difference in years would presented as subtle. If I had used the more subtle chart, I felt the need to print a rate changes on each bin to show the differences, which proved to be too distracting. 
 
-I debated whether to include a point-line in the **By Time of Day** plot, to show where points actually sat in relation to the smoother slope. I decided to keep the plot simple, as it's purpose was to simply show the general trend of collision incidents throughout the day.
+I debated whether to include a point-line in the **By time of Day** plot, to show where points actually sat in relation to the smoother slope. I decided to keep the plot simple, as it's purpose was to simply show the general trend of collision incidents throughout the day.
 
-I chose a **grey color scheme** to keep the charts simple. I did not want colors to distract from the main point (the trends). However, I did vary a scale of grey on the 2-highest and 1-lowest incident count **By Years** to draw the audience's attention to those extremes.
+I chose a **grey color scheme** to keep the charts simple. I did not want colors to distract from the main point (the trends). However, I did vary a scale of grey on the 2-highest and 1-lowest incident count **By years** to draw the audience's attention to those extremes.
 
 ### \
 Plot Two - Categorical Differences
@@ -1592,14 +1592,14 @@ Plot Two - Categorical Differences
 
 ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE), 
        aes(x = SDOTtype, y = perc, fill = factor(COLLISIONTYPE))) +
-  scale_fill_brewer(palette="Paired")  + 
-  geom_bar(stat='identity') +
-  scale_y_continuous(labels = percent_format()) +
-  labs(x = 'SDOT Categories',
-       y = 'Percent (of each SPD Category)',
-       title = 'SPD vs SDOT Incident Categorizations',
-       fill = 'SPD Category') +
-  mylayer_long_xlabel
+    scale_fill_brewer(palette="Paired")  + 
+    geom_bar(stat='identity') +
+    scale_y_continuous(labels = percent_format()) +
+    labs(x = 'SDOT Categories',
+         y = 'Percent (of each SPD Category)',
+         title = 'SPD vs SDOT Incident Categorizations',
+         fill = 'SPD Category') +
+    mylayer_long_xlabel
 
 ```
 
@@ -1623,16 +1623,16 @@ ggplot(data = dfu,
        aes(x = factor(SEVERITYDESC, level = severity_level_order), 
            y = DUI, 
            color=factor(SEVERITYDESC, level=rev(severity_level_order))) ) +
-  geom_point(alpha = 0.5, size = 1, position = 'jitter', show.legend = FALSE) +
-  geom_label(data = create_summary(dfu, DUI, SEVERITYDESC),
-             mapping = aes(label = label), 
-             alpha = 0.8, color = 'grey10', 'size' = 5, face = 'bold',
-             label.padding = unit(0.5, 'lines')) +
-  scale_y_discrete(labels = c('Non-DUI','DUI')) +
-  mylayer_color +
-  labs(y = NULL, x = 'Collision Severity',
-       title = 'Collision Severity Rates, Non-DUI vs DUI') +
-  coord_flip() 
+    geom_point(alpha = 0.5, size = 1, position = 'jitter', show.legend = FALSE) +
+    geom_label(data = create_summary(dfu, DUI, SEVERITYDESC),
+               mapping = aes(label = label), 
+               alpha = 0.8, color = 'grey10', 'size' = 5, face = 'bold',
+               label.padding = unit(0.5, 'lines')) +
+    scale_y_discrete(labels = c('Non-DUI','DUI')) +
+    mylayer_color +
+    labs(y = NULL, x = 'Collision Severity',
+         title = 'Collision Severity Rates, Non-DUI vs DUI') +
+    coord_flip() 
 
 ```
 
