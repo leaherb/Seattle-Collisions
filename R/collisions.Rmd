@@ -226,7 +226,7 @@ df$season <- factor(df$season)
 * Change SEVERITYCODE to 0 where NULL
 * Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
 
-```{r warning=FALSE, message=FALSE}
+```{r}
 ### TODO: move this justification to project documentation
 ### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
 
@@ -245,33 +245,39 @@ df <- setnames(df,
 
 # group SDOT collision types into fewer categories.
 # (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
-df$SDOTtype <- factor(with(df,
-                           ifelse(SDOT_COLCODE <= 5, 'Hits Pedestrian', 
-                                  ifelse(SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12, 'Sideswipe', 
-                                         ifelse(SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14, 'Rear End', 
-                                                ifelse(SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23, 'From Same Direction', 
-                                                       ifelse(SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25, 'Head On', 
-                                                              ifelse(SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27, 'Sideswipe', 
-                                                                     ifelse(SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30, 'From Opposite Direction', 
-                                                                            ifelse(SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46, 'Cycle',
-                                                                                   ifelse(SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51, 'Struck Object',
-                                                                                          ifelse(SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57, 'Non-Collision', 
-                                                                                                 ifelse(SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72, 'Sideswipe', 
-                                                                                                        ifelse(SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74, 'Rear End', 
-                                                                                                               ifelse(SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82, 'Sideswipe', 
-                                                                                                                      ifelse(SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84, 'Rear End', 
-                                                                                                                             'Other Collision'))))))))))))))))
+
+df <- df %>%
+    mutate(., SDOTtype = with(., case_when(
+        (SDOT_COLCODE <= 5) ~ 'Hits Pedestrian',
+        (SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14) ~ 'Rear End',
+        (SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23) ~ 'From Same Direction',
+        (SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25) ~ 'Head On',
+        (SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30) ~ 'From Opposite Direction',
+        (SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46) ~ 'Cycle',
+        (SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51) ~ 'Struck Object',
+        (SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57) ~ 'Non-Collision',
+        (SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74) ~ 'Rear End',
+        (SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84) ~ 'Rear End',
+        is.na(SDOT_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other Collision'
+    )))
 
 # shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
-# make DUI binary (Y/N) 
-df$DUI <- as.factor(with(df,
-                         ifelse(DUI == 'N', 'N', 
-                                ifelse(DUI == 'Y', 'Y',  
-                                       ifelse(DUI == '0', 'N', 
-                                              ifelse(DUI == '1', 'Y',         
-                                                     ''))))))
+# binary-ize DUI (Y/N) 
+df <- df %>%
+    mutate(., DUI = with(., case_when(
+        DUI == '0' ~ 'N',
+        DUI == 'N' ~ 'N',
+        DUI == '1' ~ 'Y',
+        DUI == 'Y' ~ 'Y',
+        is.na(DUI) ~ 'N'
+    )))
 
 # binary columns: default NULL to 'N'
 cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
@@ -333,7 +339,7 @@ print_date_range(df_full_yrs)
 ### Data structure after cleaning
 ```{r}
 glimpse(df)
-count_nulls(df)
+print_null_count(df)
 ```
 
 
