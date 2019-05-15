@@ -296,14 +296,6 @@ df <- df %>%
               ~replace_na(., 'Unknown'))
 # back to factors
 df[cols] <- lapply(df[cols], as.factor)
-
-
-
-# replace empty strings with 'Unknown'
-# TODO double-check this logic now that empty strings are replaced with NA on import
-#df$WEATHER <- as.character(df$WEATHER)
-#df$WEATHER[df$WEATHER==''] <- 'Unknown'
-#df$WEATHER <- as.factor(df$WEATHER)
 ```
 
 
