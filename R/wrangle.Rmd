@@ -1,0 +1,320 @@
+---
+title: "Wrangle Seattle collision data"
+author: "Leah Erb"
+---
+
+This is step 1 of 2 of the 'Explore Seattle collisions data' project. Here we prepare data for analysis. Find step 2 in 'analyze.Rmd'. 
+
+# The Dataset
+The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
+# libraries
+library(data.table) # for renaming columns
+library(stringr)    # for 'word' function
+library(dplyr)
+library(tidyverse)
+library(knitr)
+
+# global settings
+knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
+```
+
+
+```{r Load_data}
+#
+# Load data
+#
+# toggle data source: local file or live site
+datafile = '../data/collisions.csv'
+#datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
+
+dfRaw = read.csv(datafile, na.strings=c("", " "), header=TRUE)
+df <- data.frame(dfRaw)   # df (working dataset); dfRaw (as loaded)
+```
+
+# Assess data
+
+```{r}
+glimpse(dfRaw)
+```
+
+#### What are the min and max INCDATEs?
+```{r}
+print_date_range <- function(this_df){
+    # Prints min and max INCDATE of this_df
+    this_df %>%
+        summarize(min_INCDATE = min(as.Date(this_df$INCDATE)),
+                  max_INCDATE = max(as.Date(this_df$INCDATE)))
+}
+
+print_date_range(df)
+```
+
+#### Which columns have NULL values, and how many?
+```{r}
+print_null_count <- function(this_df) {
+    # Print columns with NULLs and their counts
+    dfNulls <- sapply(df, function(x) sum(is.na(x)))
+    as.data.frame(dfNulls[dfNulls > 0]) %>% rename_at(1, ~'null_count')
+}
+
+print_null_count(dfRaw)
+```
+**Observation:** date and datetime columns have no NULL values.
+
+#### Several columns have only 1 NULL, are they all from the same record?
+```{r}
+cols <-  c('SEVERITYCODE', 'SDOT_COLCODE', 'SDOT_COLDESC')
+subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
+```
+**Observation:** No.
+
+#### Can we deduce a value for the NULL SDOT_COLCODE, given other values in the record?
+```{r}
+subset(df, is.na(SDOT_COLCODE))
+```
+**Observation:** No. There is very little information recorded. Interestingly, this record was the first recorded. It may have been a test insert? 
+
+
+#### Can we deduce a value for the NULL SEVERITYCODE, given other values in the record?
+```{r}
+subset(df, is.na(SEVERITYCODE))
+```
+**Observation:** The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
+
+#### What do Date/time columns look like?
+```{r warning=FALSE, message=FALSE}
+head(df$INCDATE, 20)
+head(df$INCDTTM, 20)
+```
+
+#### What do binary-esque columns look like?
+```{r}
+# helper function
+count_vals <- function(this_df) {
+    # Return value counts and proportions of this_df
+    return(
+        this_df %>% 
+            tally() %>% 
+            mutate(freq = (n_pct = n / sum(n)))
+    )
+}
+
+count_vals_cols <- function(this_df, cols) {
+    # Print value count and proportions of a list of columns
+    lapply(this_df[cols], function(x) {
+        x <- enquo(x)
+        df %>% 
+            group_by(fct_explicit_na(!! x)) %>% 
+            count_vals
+    })
+}
+```
+
+```{r}
+# Print count and % of column values
+cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
+count_vals_cols(df, cols)
+```
+
+#### For counts-of-things, what % are > 0?
+```{r}
+cols <- c('PERSONCOUNT', 'PEDCOUNT', 'PEDCYLCOUNT', 'VEHCOUNT',
+          'INJURIES', 'SERIOUSINJURIES', 'FATALITIES')
+as.data.frame(lapply(df[,cols], 
+                     function(x){
+                         length(which(x != 0))/length(x) * 100
+                     } 
+))
+```
+
+###\ Assessment Observations
+**May require cleaning:**
+
+* INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
+* INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
+* Minimum INCDATE = '2003-10-06T00:00:00.000Z'
+* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
+* The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+* The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert.
+* SDOT_COLCODE contains categorical data but is datatype Integer.
+* Binary fields: 
+* INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
+* SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
+* HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
+* UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
+* Some key columns may not be of use in our analysis since we not, at this time,
+joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
+-EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
+
+
+**Of interest:**
+*  more than 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
+*  fewer than 28% collisions have non-zero values INJURIES
+*  fewer than 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
+
+
+#\
+Clean 
+
+### Create and clean Date/time columns
+* Change INCDATE datatype to Date
+* Create date/time columns:
++ year (YYYY)
++ month (1-12)
++ time (HH:MM)
++ hour (of day)
++ day_part (Morning, Afternoon, Evening, Night)
++ season (Spring, Summer, Fall, Winter)
+
+```{r Clean_data}
+df$INCDATE <- as.Date(df$INCDATE)
+df$year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
+df$month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
+df$time <- as.POSIXct(word(df$INCDTTM, 2), format = '%H:%M')
+df$hour <- as.integer(substr(df$time, 12, 13))
+df <- df %>%
+    mutate(., day_part = with(., case_when(
+        (hour >= 6  & hour < 12) ~ 'Morning',
+        (hour >= 12 & hour < 17) ~ 'Afternoon',
+        (hour >= 17 & hour < 20) ~ 'Evening',
+        (hour >= 20 | hour < 6 ) ~ 'Night',
+        is.na(hour) ~ 'Unknown',
+        TRUE ~ 'Unknown'
+    )))
+df$day_part <- factor(df$day_part)
+
+df <- df %>%
+    mutate(., season = with(., case_when(
+        (month %in% c('3','4','5'))   ~ 'Spring',
+        (month %in% c('6','7','8'))   ~ 'Summer',
+        (month %in% c('9','10','11')) ~ 'Fall',
+        (month %in% c('12','1','2'))  ~ 'Winter',
+        is.na(hour) ~ 'Unknown',
+        TRUE ~ 'Unknown'
+        )))
+df$season <- factor(df$season)
+```
+
+### Simplify and standardize
+* Rename columns (easier plot reading)
++ UNDERINFL -> DUI
++ INATTENTIONID -> DISTRACTED
+* Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
+* Shorten SEVERITYDESC values by removing ' Collision' from strings
+* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
+* Change SEVERITYCODE to 0 where NULL
+* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
+
+```{r}
+### TODO: move this justification to project documentation
+### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
+
+### Also, I was unsure whether I could use the 'DUI' alias for 'UNDERINFL'. In the same report, 'UNDERINFL' is short for 'Under the Influence of Alcohol and/or Drugs' and, without more detailed data available, is lumped together as ' DUI and/or Physical Control of the Vehicle while under the Influence'. 
+
+### References: 
+### https://www.wsdot.wa.gov/mapsdata/crash/pdf/2015_Annual_Collision_Summary.pdf
+### https://www.seattle.gov/Documents/Departments/SDOT/About/DocumentLibrary/Reports/2017_Traffic_Report.pdf
+
+# rename columns
+df <- setnames(df,
+               old=c('UNDERINFL', 'INATTENTIONIND'),
+               new=c('DUI'      , 'DISTRACTED'),
+               skip_absent = TRUE)
+
+
+# group SDOT collision types into fewer categories.
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+
+df <- df %>%
+    mutate(., SDOTtype = with(., case_when(
+        (SDOT_COLCODE <= 5) ~ 'Hits Pedestrian',
+        (SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14) ~ 'Rear End',
+        (SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23) ~ 'From Same Direction',
+        (SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25) ~ 'Head On',
+        (SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30) ~ 'From Opposite Direction',
+        (SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46) ~ 'Cycle',
+        (SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51) ~ 'Struck Object',
+        (SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57) ~ 'Non-Collision',
+        (SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74) ~ 'Rear End',
+        (SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82) ~ 'Sideswipe',
+        (SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84) ~ 'Rear End',
+        is.na(SDOT_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other Collision'
+    )))
+
+# shorten SEVERITYDESC values by removing ' Collision' from strings
+df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
+
+# binary-ize DUI (Y/N) 
+df <- df %>%
+    mutate(., DUI = with(., case_when(
+        DUI == '0' ~ 'N',
+        DUI == 'N' ~ 'N',
+        DUI == '1' ~ 'Y',
+        DUI == 'Y' ~ 'Y',
+        is.na(DUI) ~ 'N'
+    )))
+
+# binary columns: default NULL to 'N'
+cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
+# must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+df <- df %>%
+    mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
+              ~replace_na(., 'N'))
+df[cols] <- lapply(df[cols], as.factor)
+
+
+# factor columns: default NULL to 'Unknown'
+cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
+# must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+# TODO: get list of vars from cols list
+df <- df %>%
+    mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
+              ~replace_na(., 'Unknown'))
+
+df[cols] <- lapply(df[cols], as.factor)
+```
+
+
+### Fix and trim
+* Delete the first record by INCDATE (it appears to have been a test insert)
+* Change NULL SEVERITYCODE to 0
+* Remove columns not of interest at this time
+```{r}
+# delete first (test) record from 2003
+df <- subset(df, year != '2003')
+
+# change NULL SEVERITYCODE to 0
+df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
+
+# remove columns not of interest at this time
+df <- df %>%
+    select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
+           -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
+           -PEDROWNOTGRNT, -LOCATION, -HITPARKEDCAR, -ST_COLCODE, -ST_COLDESC,
+           -SDOT_COLDESC)
+
+# Verify
+print_date_range(df)
+```
+
+
+### Data structure after cleaning
+```{r}
+glimpse(df)
+# Any lingering NULLs?
+print_null_count(df)
+```
+
+#\
+Save data to file, retaining the data structure
+```{r}
+save(df, file = 'collisions_clean.rda')
+```
