@@ -1,12 +1,18 @@
 # Seattle-Collisions
 Compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau on the Seattle Collisions dataset.
 
+The motivation behind this project is two-fold:
+1. practice wrangling, exploring and storytelling with data
+2. identify commonalities, strengths and weaknesses of various toolsets used for wrangling, exploring and storytelling
+
+<img src="docs/SeattleCollisionsPlot1.png" alt="example plot" width="300px" height="auto">
+
 ## Project Status
-This project a work in progress. The R method is actively being refined and will act as the standard against which the Python, SQL and Tableau methods will be developed.
+This project a work in progress. The R method is actively being refined and will act as the standard against which the Python, SQL and Tableau modules will be developed.
 
 ## How to Contribute
 
-I encourage you to submit issues and enhancement requests.
+I encourage you to submit pull requests.
 
 Please use the Udacity Git Commit Message Style Guide (https://udacity.github.io/git-styleguide/), and follow the "fork-and-pull" Git workflow:
 
@@ -31,10 +37,9 @@ Note: Please take care to merge the latest from "upstream" before making a pull 
 * Add Python method
 * Add SQL method
 * Add Tableau method
+* Write and publish formal project report
 
 ## Files and Directories
-#### R 
-Use R Studio to wrangle and explore data
+*R* - R Studio notebooks for wrangling and analyzing data
 
-#### Collisions_OD.pdf
-Metadata (also found here: https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+*Collisions_OD.pdf* - Metadata (also found here: https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
