@@ -3,17 +3,17 @@ title: "Exploratory Analysis of Seattle Collisions"
 author: "Leah Erb"
 ---
 
-This report explores **collision** reports from **Seattle, Washington, USA**.
+This report explores **collision** report data from **Seattle, Washington, USA**.
 
 # The Dataset
 The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
 # libraries
-library(ggpubr)     # for 'ggarrange' function
 library(ggplot2)
+library(ggpubr)     # ggarrange
 library(scales)
-library(GGally)     # for ggcorr function
+library(GGally)     # ggcorr
 library(dplyr)
 library(tidyverse)
 library(knitr)
@@ -49,11 +49,21 @@ df_full_yrs <- subset(df, year != '2019')
 Univariate Plots
 
 ### How have the total number of collisions changed over the years?
-
 ```{r warning=FALSE, message=FALSE}
 ggplot(data = df_full_yrs, aes(x = year)) +
     geom_bar()  +
     scale_y_continuous(breaks = seq(0, 18000, 2000))
+```
+
+Convert bar plot to line chart.
+```{r}
+ggplot(data = df_full_yrs %>% count(year),
+       aes(x = as.numeric(as.character(year)), 
+           y = n)) +
+    geom_line()  +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
+    #ylim(0, NA)+
+    scale_y_log10()
 ```
 #### Observations
 The distribution of collision frequency by year appears bimodal, peaking at **2005** and, to a lesser extent, **2015**, with a low at **2010** and again in **2018**. This plot hints at a possible 5-year pattern.
