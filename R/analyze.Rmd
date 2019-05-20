@@ -73,19 +73,24 @@ The distribution of collision frequency by year appears bimodal, peaking at **20
 I had expected to see a steady increase in Seattle collisions, mirroring population growth. Perhaps I'm wrong about the steady increase in population, or that the number of **reported** collisions have a strong correlation with the population in the first place. #TODO: import population data and compare rate changes with collision rates by year.
 
 ###\
-Do collision frequencies change throughout the day?
+2. Do collision frequencies change throughout the day?
 ```{r warning=FALSE}
 ggplot(data = df %>% 
            filter(!is.na(hour)) %>%
            count(hour), 
        aes(x = hour, y = n, group = 1 )) + 
-    geom_line()  
+    geom_line() + 
+    labs(title = 'Collision Count by Hour', x = '', y = '') +
+    mytheme_minimal  +
+    scale_y_continuous(labels = scales::comma) 
 ```
 
-It appears that collision counts tend to rise during commute hours, starting at the lowest point around 4am. 
+It appears that collision counts tend to rise during commute hours, starting at the lowest point around 4am, reaching a peak at 5pm. 
+
+TODO: Chart by hour by day of week (or weekday vs weekend)
 
 ###\
-What are the COLLISION types, according to the **SPD**?
+3. What are the COLLISION types, according to the **SPD**?
 
 > Our dataset includes 2 Collision type (category) variables: 
 >
@@ -95,28 +100,32 @@ What are the COLLISION types, according to the **SPD**?
 
 
 ```{r warning=FALSE, message=FALSE, Univariate_Plots}
-# TODO: print % instead of totals, x-axis on top
+# TODO: print % instead of totals, no x-axis labels / ticks
 ggplot(data = df,
        aes(x = reorder(COLLISIONTYPE, COLLISIONTYPE, function(x) length(x) * 1)  )) +
-    geom_bar(width = .95)   +
+    geom_bar(width = .85)   +
+    mytheme_minimal +
     mylayer_count_above +
-    mylayer_long_xlabel +
-    labs(x = 'SPD COLLISIONTYPE', y = 'Count') +
-    coord_flip()
+    labs(title = 'SPD Collision Types',
+         x = '', 
+         y = '') +
+    coord_flip()  
 ```
 
 ### \
-What are the collision types as recorded by **SDOT**?
+4. What are the collision types as recorded by **SDOT**?
 
 ```{r  warning=FALSE, message=FALSE}
-# TODO: print % instead of totals, x-axis on top
+# TODO: print % instead of totals, no x-axis / ticks
 
 ggplot(data = df,
        aes(x = reorder(SDOTtype, SDOTtype, function(x) length(x) * 1))) +
-    geom_bar(width = .95)  +
+    geom_bar(width = .85)   +
+    mytheme_minimal +
     mylayer_count_above +
-    mylayer_long_xlabel +
-    labs(x = 'SDOTtype', y = 'Count')+
+    labs(title = ' SDOT Collision Types',
+         x = '', 
+         y = '') +
     coord_flip()
 ```
 
@@ -128,7 +137,7 @@ It is possible that SPD has reason to categorize collisions differently than SDO
 In this report, except where otherwise noted, will be using **SDOT**'s Collision categories.
 
 ### \
-What are the SEVERITY categories?
+5. What are the SEVERITY categories?
 
 ```{r warning=FALSE, message=FALSE}
 # TODO: remove decimal in %
