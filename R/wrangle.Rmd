@@ -183,6 +183,8 @@ df <- df %>%
         is.na(hour) ~ 'Unknown',
         TRUE ~ 'Unknown'
     )))
+df$hour <- as.factor(df$hour)
+
 df$day_part <- factor(df$day_part)
 
 df <- df %>%

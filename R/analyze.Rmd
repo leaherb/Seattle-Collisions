@@ -26,6 +26,14 @@ library(gridExtra)
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
 
 # ggplot layers
+mytheme_minimal <- theme_minimal() +
+    theme(plot.title = element_text(size = 16, hjust = 0),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 11),
+          axis.title.x = element_text(hjust = 0),
+          legend.position = "none"
+          ) 
+
 mylayer_color <- scale_color_brewer(palette = 'Dark2', direction = 1)  
 mylayer_fillcolor <- scale_fill_brewer(palette = 'Dark2', direction = 1)
 mylayer_x90 <- theme(axis.text.x = element_text(angle = 90, hjust = 1))
@@ -48,35 +56,30 @@ df_full_yrs <- subset(df, year != '2019')
 ##\
 Univariate Plots
 
-### How have the total number of collisions changed over the years?
-```{r warning=FALSE, message=FALSE}
-ggplot(data = df_full_yrs, aes(x = year)) +
-    geom_bar()  +
-    scale_y_continuous(breaks = seq(0, 18000, 2000))
-```
-
-Convert bar plot to line chart.
+### 1. How have the total number of collisions changed over the years?
 ```{r}
-ggplot(data = df_full_yrs %>% count(year),
-       aes(x = as.numeric(as.character(year)), 
-           y = n)) +
-    geom_line()  +
-    scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
-    #ylim(0, NA)+
-    scale_y_log10()
+ggplot(data = df_full_yrs %>% count(year), aes(x = year, y = n)) + 
+    geom_bar(stat = "identity", aes(fill = n)) + 
+    labs(title = 'Collision Count by Year', x = '', y = '') +
+    mytheme_minimal +
+    scale_fill_distiller(palette = 'Greys', direction = 1) + 
+    scale_x_discrete(position = 'top') +
+    scale_y_continuous(labels = scales::comma) 
 ```
-#### Observations
-The distribution of collision frequency by year appears bimodal, peaking at **2005** and, to a lesser extent, **2015**, with a low at **2010** and again in **2018**. This plot hints at a possible 5-year pattern.
 
-I had expected to see a steady increase in Seattle collisions, mirroring population growth. Perhaps I'm wrong about the steady increase in population, or that the number of **reported** collisions have a strong correlation with the population in the first place.
+#### Observations
+The distribution of collision frequency by year appears bimodal, peaking at **2005** and, to a lesser extent, **2015**, with a low in between at **2010** and again in **2018**. This plot hints at a possible 5-year pattern.
+
+I had expected to see a steady increase in Seattle collisions, mirroring population growth. Perhaps I'm wrong about the steady increase in population, or that the number of **reported** collisions have a strong correlation with the population in the first place. #TODO: import population data and compare rate changes with collision rates by year.
 
 ###\
 Do collision frequencies change throughout the day?
-
-```{r  warning=FALSE, message=FALSE}
-ggplot(data = df %>% count(hour), aes(x = hour, y = n )) + 
-    geom_line() + 
-    ylim(0,15000)
+```{r warning=FALSE}
+ggplot(data = df %>% 
+           filter(!is.na(hour)) %>%
+           count(hour), 
+       aes(x = hour, y = n, group = 1 )) + 
+    geom_line()  
 ```
 
 It appears that collision counts tend to rise during commute hours, starting at the lowest point around 4am. 
@@ -902,7 +905,7 @@ time_counts <- df %>%
 
 # Identify what part of the day the crime occurred
 ggplot(data = subset(time_counts, !is.na(hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))),
-       aes(x = hour, y = n, color = LIGHTCOND), size = 1.5, alpha = 0.6) +
+       aes(x = hour, y = n, color = LIGHTCOND, group = 1), size = 1.5, alpha = 0.6) +
     geom_point(alpha = .6, size = 3) +
     facet_wrap(~ day_part, scales = 'free_x', ncol=2)  +
     mylayer_color 
@@ -927,7 +930,7 @@ time_perc <- subset(df, !is.na(hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'
 
 
 ggplot(data = time_perc,
-       aes(x = hour, y = perc, color = LIGHTCOND)) +
+       aes(x = hour, y = perc, color = LIGHTCOND, group = 1)) +
     geom_line(size = 2) +
     mylayer_color +
     scale_y_continuous(labels = function(x) paste0(x*100, "%"))
@@ -947,10 +950,10 @@ by_year_hour <- df %>%
     group_by(year, hour) %>%
     summarise(count = n()) 
 
-
+# TODO: filter out NA hours
 ggplot(data = subset(by_year_hour, year %in% c(2005, 2010, 2015)),
        aes(x = hour, y = count)) +
-    geom_line(aes(color = year), size = 1) +
+    geom_line(aes(color = year), size = 1, group = 1) +
     ylim(0,1200) 
 
 ```
@@ -1119,11 +1122,12 @@ p_line <-
     geom_line(data = dfh, aes(x = hour, y = count, linetype = 'DUIs'), size = 1.5) 
 
 
+# TODO: filter out NA hours, fix DUI line
 # Now combine 2 plots
 ggplot() +
     p_bar +
     p_line +
-    scale_x_continuous(breaks = seq(0, 23, 2)) +
+    #scale_x_continuous(breaks = seq(0, 23, 2)) +
     labs(fill = 'SEVERITYDESC') +
     scale_fill_manual(values=c('#da897c', "#e4e4b2","#b2e4cf"))
 
@@ -1260,9 +1264,9 @@ p1 <- ggplot(data = by_year,
     mylayer_subtitle
 
 # By time plot
-g1 <- geom_point(data = df %>% count(hour), aes(x = hour, y = n ))
-g2 <- geom_smooth(data = df %>% count(hour), aes(x = hour, y = n ), color='grey40')
-g3 <- geom_line(data = df %>% count(hour), aes(x = hour, y = n )) 
+g1 <- geom_point(data = df %>% count(hour), aes(x = hour, y = n, group = 1 ))
+g2 <- geom_smooth(data = df %>% count(hour), aes(x = hour, y = n, group = 1 ), color='grey40')
+g3 <- geom_line(data = df %>% count(hour), aes(x = hour, y = n, group = 1 )) 
 
 p2 <- ggplot() +  g2  + ylim(0,16000) +
     labs(x = 'time (hour on a 24-hour clock)',
