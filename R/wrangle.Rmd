@@ -1,46 +1,37 @@
 ---
 title: "Wrangle Seattle collision data"
-author: "Leah Erb"
+author: Leah Erb
 ---
 
-This is step 1 of 2 of the 'Explore Seattle collisions data' project. Here we prepare data for analysis. Find step 2 in 'analyze.Rmd'. 
+```{r echo=FALSE, message=FALSE, warning=FALSE, Stylize}
+# Stylize our output
+knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
+```
 
-# The Dataset
-The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
+```{css echo=FALSE, message=FALSE, warning=FALSE, CSS}
+/* Define a margin before header elements */
+h1  {
+  margin-top: 52px;
+}
+h2, h3, h4  {
+  margin-top: 48px;
+}
+/* Define a margin after every first p elements */
+p:first-of-type {
+  margin-bottom: 14px;
+}
+``` 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
+***
+# Libraries and functions
+```{r message=FALSE, warning=FALSE, Libraries_Functions}
 # libraries
-library(data.table) # for renaming columns
-library(stringr)    # for 'word' function
+library(data.table) # renaming columns
+library(stringr)    # 'word' function
 library(dplyr)
 library(tidyverse)
 library(knitr)
 
-# global settings
-knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
-```
-
-
-```{r Load_data}
-#
-# Load data
-#
-# toggle data source: local file or live site
-datafile = '../data/collisions.csv'
-#datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
-
-dfRaw = read.csv(datafile, na.strings=c("", " "), header=TRUE)
-df <- data.frame(dfRaw)   # df (working dataset); dfRaw (as loaded)
-```
-
-# Assess data
-
-```{r}
-glimpse(dfRaw)
-```
-
-#### What are the min and max INCDATEs?
-```{r}
 print_date_range <- function(this_df){
     # Prints min and max INCDATE of this_df
     this_df %>%
@@ -48,49 +39,12 @@ print_date_range <- function(this_df){
                   max_INCDATE = max(as.Date(this_df$INCDATE)))
 }
 
-print_date_range(df)
-```
-
-#### Which columns have NULL values, and how many?
-```{r}
 print_null_count <- function(this_df) {
     # Print columns with NULLs and their counts
     dfNulls <- sapply(df, function(x) sum(is.na(x)))
     as.data.frame(dfNulls[dfNulls > 0]) %>% rename_at(1, ~'null_count')
 }
 
-print_null_count(dfRaw)
-```
-**Observation:** date and datetime columns have no NULL values.
-
-#### Several columns have only 1 NULL, are they all from the same record?
-```{r}
-cols <-  c('SEVERITYCODE', 'SDOT_COLCODE', 'SDOT_COLDESC')
-subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
-```
-**Observation:** No.
-
-#### Can we deduce a value for the NULL SDOT_COLCODE, given other values in the record?
-```{r}
-subset(df, is.na(SDOT_COLCODE))
-```
-**Observation:** No. There is very little information recorded. Interestingly, this record was the first recorded. It may have been a test insert? 
-
-
-#### Can we deduce a value for the NULL SEVERITYCODE, given other values in the record?
-```{r}
-subset(df, is.na(SEVERITYCODE))
-```
-**Observation:** The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
-
-#### What do Date/time columns look like?
-```{r warning=FALSE, message=FALSE}
-head(df$INCDATE, 20)
-head(df$INCDTTM, 20)
-```
-
-#### What do binary-esque columns look like?
-```{r}
 # helper function
 count_vals <- function(this_df) {
     # Return value counts and proportions of this_df
@@ -112,13 +66,82 @@ count_vals_cols <- function(this_df, cols) {
 }
 ```
 
+***
+# Load data
+```{r Load_data}
+# toggle data source: local file or live site  TODO: default to live site
+datafile = '../data/collisions.csv'
+#datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
+
+df = read.csv(datafile, na.strings=c("", " "), header=TRUE)
+```
+
+***
+# Assess
+
+```{r}
+glimpse(df)
+```
+
+
+#### What do Date/time columns look like?
+```{r warning=FALSE, message=FALSE}
+head(df$INCDATE, 20)
+head(df$INCDTTM, 20)
+```
+**Observation:** INCDATE does not contain time, INCDTTM includes dates and sometimes time.
+```{r}
+
+print_date_range(df)
+
+```
+
+
+#### What is our data's date range, and how many records in each year?
+
+```{r}
+df %>%
+    mutate(year = lubridate::year(as.Date(df$INCDATE))) %>%
+    group_by(year) %>%
+    tally() 
+```
+**Observation:** We have an outlier in year 2003, and the lastest year may not be a full 12 month's worth of data.
+
+#### Which columns have NULL values, and how many are there?
+```{r}
+print_null_count(df)
+```
+**Observation:** date and datetime columns have no NULL values.
+
+#### Several columns have only 1 NULL, are they all from the same record?
+```{r}
+cols <-  c('SEVERITYCODE', 'SDOT_COLCODE', 'SDOT_COLDESC')
+subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
+```
+**Observation:** No.
+
+#### Can we deduce a value for the missing SDOT_COLCODE, given other values in the record?
+```{r}
+subset(df, is.na(SDOT_COLCODE))
+```
+**Observation:** No. There is very little information recorded. Suspiciously, record is dated 2003 which is the only record for that year. I hypothesize that the 2003 record was a test insert. 
+
+
+#### Can we deduce a value for the NULL SEVERITYCODE, given other values in the record?
+```{r}
+subset(df, is.na(SEVERITYCODE))
+```
+**Observation:** Yes. The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
+
+
+#### What do binary-esque columns look like?
 ```{r}
 # Print count and % of column values
 cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
 count_vals_cols(df, cols)
 ```
 
-#### For counts-of-things, what % are > 0?
+#### For each counts-of-things column, what % of values are > 0?
 ```{r}
 cols <- c('PERSONCOUNT', 'PEDCOUNT', 'PEDCYLCOUNT', 'VEHCOUNT',
           'INJURIES', 'SERIOUSINJURIES', 'FATALITIES')
@@ -161,12 +184,12 @@ Clean
 ### Create and clean Date/time columns
 * Change INCDATE datatype to Date
 * Create date/time columns:
-+ year (YYYY)
-+ month (1-12)
-+ time (HH:MM)
-+ hour (of day)
-+ day_part (Morning, Afternoon, Evening, Night)
-+ season (Spring, Summer, Fall, Winter)
++ year (YYYY)  <- factor
++ month (1-12) <- factor
++ time (HH:MM) <- time
++ hour (of day) <- factor
++ day_part (Morning, Afternoon, Evening, Night) <- factor
++ season (Spring, Summer, Fall, Winter) <- factor
 
 ```{r Clean_data}
 df$INCDATE <- as.Date(df$INCDATE)

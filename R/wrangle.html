@@ -190,23 +190,75 @@ $(document).ready(function () {
 </div>
 
 
-<p>This is step 1 of 2 of the ‘Explore Seattle collisions data’ project. Here we prepare data for analysis. Find step 2 in ‘analyze.Rmd’.</p>
-<div id="the-dataset" class="section level1">
-<h1>The Dataset</h1>
-<p>The <a href="https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions">Seattle Collisions</a> dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.</p>
-<pre class="r"><code>#
-# Load data
-#
-# toggle data source: local file or live site
+<style type="text/css">
+/* Define a margin before header elements */
+h1  {
+  margin-top: 52px;
+}
+h2, h3, h4  {
+  margin-top: 48px;
+}
+/* Define a margin after every first p elements */
+p:first-of-type {
+  margin-bottom: 14px;
+}
+</style>
+<hr />
+<div id="libraries-and-functions" class="section level1">
+<h1>Libraries and functions</h1>
+<pre class="r"><code># libraries
+library(data.table) # renaming columns
+library(stringr)    # 'word' function
+library(dplyr)
+library(tidyverse)
+library(knitr)
+
+print_date_range &lt;- function(this_df){
+    # Prints min and max INCDATE of this_df
+    this_df %&gt;%
+        summarize(min_INCDATE = min(as.Date(this_df$INCDATE)),
+                  max_INCDATE = max(as.Date(this_df$INCDATE)))
+}
+
+print_null_count &lt;- function(this_df) {
+    # Print columns with NULLs and their counts
+    dfNulls &lt;- sapply(df, function(x) sum(is.na(x)))
+    as.data.frame(dfNulls[dfNulls &gt; 0]) %&gt;% rename_at(1, ~'null_count')
+}
+
+# helper function
+count_vals &lt;- function(this_df) {
+    # Return value counts and proportions of this_df
+    return(
+        this_df %&gt;% 
+            tally() %&gt;% 
+            mutate(freq = (n_pct = n / sum(n)))
+    )
+}
+
+count_vals_cols &lt;- function(this_df, cols) {
+    # Print value count and proportions of a list of columns
+    lapply(this_df[cols], function(x) {
+        x &lt;- enquo(x)
+        df %&gt;% 
+            group_by(fct_explicit_na(!! x)) %&gt;% 
+            count_vals
+    })
+}</code></pre>
+<hr />
+</div>
+<div id="load-data" class="section level1">
+<h1>Load data</h1>
+<pre class="r"><code># toggle data source: local file or live site  TODO: default to live site
 datafile = '../data/collisions.csv'
 #datafile = 'http://data-seattlecitygis.opendata.arcgis.com/datasets/5b5c745e0f1f48e7a53acec63a0022ab_0.csv'
 
-dfRaw = read.csv(datafile, na.strings=c(&quot;&quot;, &quot; &quot;), header=TRUE)
-df &lt;- data.frame(dfRaw)   # df (working dataset); dfRaw (as loaded)</code></pre>
+df = read.csv(datafile, na.strings=c(&quot;&quot;, &quot; &quot;), header=TRUE)</code></pre>
+<hr />
 </div>
-<div id="assess-data" class="section level1">
-<h1>Assess data</h1>
-<pre class="r"><code>glimpse(dfRaw)</code></pre>
+<div id="assess" class="section level1">
+<h1>Assess</h1>
+<pre class="r"><code>glimpse(df)</code></pre>
 <pre><code>Observations: 205,877
 Variables: 38
 $ OBJECTID        &lt;int&gt; 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, …
@@ -247,28 +299,63 @@ $ ST_COLDESC      &lt;fct&gt; From opposite direction - one left turn - one st�
 $ SEGLANEKEY      &lt;int&gt; 0, 0, 0, 0, 29054, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
 $ CROSSWALKKEY    &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
 $ HITPARKEDCAR    &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …</code></pre>
-<div id="what-are-the-min-and-max-incdates" class="section level4">
-<h4>What are the min and max INCDATEs?</h4>
-<pre class="r"><code>print_date_range &lt;- function(this_df){
-    # Prints min and max INCDATE of this_df
-    this_df %&gt;%
-        summarize(min_INCDATE = min(as.Date(this_df$INCDATE)),
-                  max_INCDATE = max(as.Date(this_df$INCDATE)))
-}
-
-print_date_range(df)</code></pre>
+<div id="what-do-datetime-columns-look-like" class="section level4">
+<h4>What do Date/time columns look like?</h4>
+<pre class="r"><code>head(df$INCDATE, 20)</code></pre>
+<pre><code> [1] 2013-04-02T00:00:00.000Z 2013-03-30T00:00:00.000Z
+ [3] 2006-10-24T00:00:00.000Z 2005-07-28T00:00:00.000Z
+ [5] 2013-04-02T00:00:00.000Z 2006-02-21T00:00:00.000Z
+ [7] 2004-09-30T00:00:00.000Z 2005-06-07T00:00:00.000Z
+ [9] 2013-04-02T00:00:00.000Z 2005-08-26T00:00:00.000Z
+[11] 2013-04-02T00:00:00.000Z 2005-08-07T00:00:00.000Z
+[13] 2005-11-17T00:00:00.000Z 2004-07-11T00:00:00.000Z
+[15] 2013-04-05T00:00:00.000Z 2005-03-04T00:00:00.000Z
+[17] 2013-04-02T00:00:00.000Z 2010-05-12T00:00:00.000Z
+[19] 2013-04-02T00:00:00.000Z 2013-04-02T00:00:00.000Z
+5507 Levels: 2003-10-06T00:00:00.000Z ... 2019-01-31T00:00:00.000Z</code></pre>
+<pre class="r"><code>head(df$INCDTTM, 20)</code></pre>
+<pre><code> [1] 4/2/13 15:10   3/30/13 14:00  10/24/06 10:01 7/28/05 11:45 
+ [5] 4/2/13 19:15   2/21/06 0:13   9/30/04 12:40  6/7/05        
+ [9] 4/2/13 19:29   8/26/05 7:23   4/2/13 8:05    8/7/05        
+[13] 11/17/05 8:56  7/11/04 17:25  4/5/13 7:31    3/4/05        
+[17] 4/2/13 13:25   5/12/10 21:00  4/2/13         4/2/13 19:07  
+155661 Levels: 1/1/04 1/1/05 1/1/06 1/1/07 1/1/08 1/1/09 ... 9/9/18 9:22</code></pre>
+<p><strong>Observation:</strong> INCDATE does not contain time, INCDTTM includes dates and sometimes time.</p>
+<pre class="r"><code>print_date_range(df)</code></pre>
 <pre><code>  min_INCDATE max_INCDATE
 1  2003-10-06  2019-01-31</code></pre>
 </div>
-<div id="which-columns-have-null-values-and-how-many" class="section level4">
-<h4>Which columns have NULL values, and how many?</h4>
-<pre class="r"><code>print_null_count &lt;- function(this_df) {
-    # Print columns with NULLs and their counts
-    dfNulls &lt;- sapply(df, function(x) sum(is.na(x)))
-    as.data.frame(dfNulls[dfNulls &gt; 0]) %&gt;% rename_at(1, ~'null_count')
-}
-
-print_null_count(dfRaw)</code></pre>
+<div id="what-is-our-datas-date-range-and-how-many-records-in-each-year" class="section level4">
+<h4>What is our data’s date range, and how many records in each year?</h4>
+<pre class="r"><code>df %&gt;%
+    mutate(year = lubridate::year(as.Date(df$INCDATE))) %&gt;%
+    group_by(year) %&gt;%
+    tally() </code></pre>
+<pre><code># A tibble: 17 x 2
+    year     n
+   &lt;dbl&gt; &lt;int&gt;
+ 1  2003     1
+ 2  2004 15457
+ 3  2005 16016
+ 4  2006 15794
+ 5  2007 15082
+ 6  2008 14139
+ 7  2009 13275
+ 8  2010 11958
+ 9  2011 12416
+10  2012 12732
+11  2013 12757
+12  2014 13212
+13  2015 14260
+14  2016 13905
+15  2017 12474
+16  2018 11904
+17  2019   495</code></pre>
+<p><strong>Observation:</strong> We have an outlier in year 2003, and the lastest year may not be a full 12 month’s worth of data.</p>
+</div>
+<div id="which-columns-have-null-values-and-how-many-are-there" class="section level4">
+<h4>Which columns have NULL values, and how many are there?</h4>
+<pre class="r"><code>print_null_count(df)</code></pre>
 <pre><code>               null_count
 ADDRTYPE             3608
 INTKEY             139484
@@ -304,8 +391,8 @@ subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols
 197563 MOTOR VEHICLE STRUCK PEDALCYCLIST, FRONT END AT ANGLE</code></pre>
 <p><strong>Observation:</strong> No.</p>
 </div>
-<div id="can-we-deduce-a-value-for-the-null-sdot_colcode-given-other-values-in-the-record" class="section level4">
-<h4>Can we deduce a value for the NULL SDOT_COLCODE, given other values in the record?</h4>
+<div id="can-we-deduce-a-value-for-the-missing-sdot_colcode-given-other-values-in-the-record" class="section level4">
+<h4>Can we deduce a value for the missing SDOT_COLCODE, given other values in the record?</h4>
 <pre class="r"><code>subset(df, is.na(SDOT_COLCODE))</code></pre>
 <pre><code>    OBJECTID INCKEY COLDETKEY REPORTNO  STATUS     ADDRTYPE INTKEY
 117     2117   3663      3663  1787335 Matched Intersection  29797
@@ -321,7 +408,7 @@ subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols
 117    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;             Y    3279003     &lt;NA&gt;
     ST_COLCODE ST_COLDESC SEGLANEKEY CROSSWALKKEY HITPARKEDCAR
 117         NA       &lt;NA&gt;          0            0            N</code></pre>
-<p><strong>Observation:</strong> No. There is very little information recorded. Interestingly, this record was the first recorded. It may have been a test insert?</p>
+<p><strong>Observation:</strong> No. There is very little information recorded. Suspiciously, record is dated 2003 which is the only record for that year. I hypothesize that the 2003 record was a test insert.</p>
 </div>
 <div id="can-we-deduce-a-value-for-the-null-severitycode-given-other-values-in-the-record" class="section level4">
 <h4>Can we deduce a value for the NULL SEVERITYCODE, given other values in the record?</h4>
@@ -346,51 +433,10 @@ subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols
 197563         NA     &lt;NA&gt;         NA       &lt;NA&gt;          0            0
        HITPARKEDCAR
 197563            N</code></pre>
-<p><strong>Observation:</strong> The NULL SEVERITYCODE could be changed to ‘0’ because INJURY, SERIOUSINJURIES and FATALITIES = 0</p>
-</div>
-<div id="what-do-datetime-columns-look-like" class="section level4">
-<h4>What do Date/time columns look like?</h4>
-<pre class="r"><code>head(df$INCDATE, 20)</code></pre>
-<pre><code> [1] 2013-04-02T00:00:00.000Z 2013-03-30T00:00:00.000Z
- [3] 2006-10-24T00:00:00.000Z 2005-07-28T00:00:00.000Z
- [5] 2013-04-02T00:00:00.000Z 2006-02-21T00:00:00.000Z
- [7] 2004-09-30T00:00:00.000Z 2005-06-07T00:00:00.000Z
- [9] 2013-04-02T00:00:00.000Z 2005-08-26T00:00:00.000Z
-[11] 2013-04-02T00:00:00.000Z 2005-08-07T00:00:00.000Z
-[13] 2005-11-17T00:00:00.000Z 2004-07-11T00:00:00.000Z
-[15] 2013-04-05T00:00:00.000Z 2005-03-04T00:00:00.000Z
-[17] 2013-04-02T00:00:00.000Z 2010-05-12T00:00:00.000Z
-[19] 2013-04-02T00:00:00.000Z 2013-04-02T00:00:00.000Z
-5507 Levels: 2003-10-06T00:00:00.000Z ... 2019-01-31T00:00:00.000Z</code></pre>
-<pre class="r"><code>head(df$INCDTTM, 20)</code></pre>
-<pre><code> [1] 4/2/13 15:10   3/30/13 14:00  10/24/06 10:01 7/28/05 11:45 
- [5] 4/2/13 19:15   2/21/06 0:13   9/30/04 12:40  6/7/05        
- [9] 4/2/13 19:29   8/26/05 7:23   4/2/13 8:05    8/7/05        
-[13] 11/17/05 8:56  7/11/04 17:25  4/5/13 7:31    3/4/05        
-[17] 4/2/13 13:25   5/12/10 21:00  4/2/13         4/2/13 19:07  
-155661 Levels: 1/1/04 1/1/05 1/1/06 1/1/07 1/1/08 1/1/09 ... 9/9/18 9:22</code></pre>
+<p><strong>Observation:</strong> Yes. The NULL SEVERITYCODE could be changed to ‘0’ because INJURY, SERIOUSINJURIES and FATALITIES = 0</p>
 </div>
 <div id="what-do-binary-esque-columns-look-like" class="section level4">
 <h4>What do binary-esque columns look like?</h4>
-<pre class="r"><code># helper function
-count_vals &lt;- function(this_df) {
-    # Return value counts and proportions of this_df
-    return(
-        this_df %&gt;% 
-            tally() %&gt;% 
-            mutate(freq = (n_pct = n / sum(n)))
-    )
-}
-
-count_vals_cols &lt;- function(this_df, cols) {
-    # Print value count and proportions of a list of columns
-    lapply(this_df[cols], function(x) {
-        x &lt;- enquo(x)
-        df %&gt;% 
-            group_by(fct_explicit_na(!! x)) %&gt;% 
-            count_vals
-    })
-}</code></pre>
 <pre class="r"><code># Print count and % of column values
 cols &lt;- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
 count_vals_cols(df, cols)</code></pre>
@@ -425,8 +471,8 @@ $HITPARKEDCAR
 1 N                      197334 0.959 
 2 Y                        8543 0.0415</code></pre>
 </div>
-<div id="for-counts-of-things-what-are-0" class="section level4">
-<h4>For counts-of-things, what % are &gt; 0?</h4>
+<div id="for-each-counts-of-things-column-what-of-values-are-0" class="section level4">
+<h4>For each counts-of-things column, what % of values are &gt; 0?</h4>
 <pre class="r"><code>cols &lt;- c('PERSONCOUNT', 'PEDCOUNT', 'PEDCYLCOUNT', 'VEHCOUNT',
           'INJURIES', 'SERIOUSINJURIES', 'FATALITIES')
 as.data.frame(lapply(df[,cols], 
@@ -468,12 +514,12 @@ Clean</h1>
 <ul>
 <li>Change INCDATE datatype to Date</li>
 <li>Create date/time columns:</li>
-<li>year (YYYY)</li>
-<li>month (1-12)</li>
-<li>time (HH:MM)</li>
-<li>hour (of day)</li>
-<li>day_part (Morning, Afternoon, Evening, Night)</li>
-<li>season (Spring, Summer, Fall, Winter)</li>
+<li>year (YYYY) &lt;- factor</li>
+<li>month (1-12) &lt;- factor</li>
+<li>time (HH:MM) &lt;- time</li>
+<li>hour (of day) &lt;- factor</li>
+<li>day_part (Morning, Afternoon, Evening, Night) &lt;- factor</li>
+<li>season (Spring, Summer, Fall, Winter) &lt;- factor</li>
 </ul>
 <pre class="r"><code>df$INCDATE &lt;- as.Date(df$INCDATE)
 df$year &lt;- as.factor(lubridate::year(as.Date(df$INCDATE)))
@@ -489,6 +535,8 @@ df &lt;- df %&gt;%
         is.na(hour) ~ 'Unknown',
         TRUE ~ 'Unknown'
     )))
+df$hour &lt;- as.factor(df$hour)
+
 df$day_part &lt;- factor(df$day_part)
 
 df &lt;- df %&gt;%
@@ -640,8 +688,8 @@ $ LIGHTCOND       &lt;fct&gt; Daylight, Daylight, Daylight, Daylight, Dusk, Da�
 $ SPEEDING        &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, N, N, N, …
 $ year            &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 2004, 2005, …
 $ month           &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11, 7, 4, 3…
-$ time            &lt;dttm&gt; 2019-05-16 15:10:00, 2019-05-16 14:00:00, 2019-…
-$ hour            &lt;int&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, 8, …
+$ time            &lt;dttm&gt; 2019-05-21 15:10:00, 2019-05-21 14:00:00, 2019-…
+$ hour            &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, 8, …
 $ day_part        &lt;fct&gt; Afternoon, Afternoon, Morning, Morning, Evening,…
 $ season          &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, Winter, Fa…
 $ SDOTtype        &lt;chr&gt; &quot;Sideswipe&quot;, &quot;Sideswipe&quot;, &quot;Sideswipe&quot;, &quot;Sideswip…</code></pre>
