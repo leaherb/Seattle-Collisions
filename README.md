@@ -1,11 +1,15 @@
 # Seattle-Collisions
-Compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau on the Seattle Collisions dataset.
+
+This project uses Seattle Collisions data* to compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau.
 
 The motivation behind this project is two-fold:
 1. practice wrangling, exploring and storytelling with data
 2. identify commonalities, strengths and weaknesses of various toolsets used for wrangling, exploring and storytelling
 
 <img src="docs/SeattleCollisionsPlot1.png" alt="example plot" width="300px" height="auto">
+
+### *Seattle Collisions Data
+The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), starting in 2004 and updated regularly.
 
 ## Project Status
 This project a work in progress. The R method is actively being refined and will act as the standard against which the Python, SQL and Tableau modules will be developed.
