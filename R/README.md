@@ -1,3 +1,5 @@
-**collisions.html** is too large to view in GitHub.  Use this URL instead: 
+View HTMLs with these links: 
 
-https://htmlpreview.github.io/?https://raw.githubusercontent.com/leaherb/Seattle-Collisions/master/R/analyze.html
+[wrangle.html](https://htmlpreview.github.io/?https://raw.githubusercontent.com/leaherb/Seattle-Collisions/master/R/analyze.html)
+
+[analyze.html](https://htmlpreview.github.io/?https://raw.githubusercontent.com/leaherb/Seattle-Collisions/master/R/analyze.html)
