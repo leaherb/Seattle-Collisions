@@ -232,18 +232,35 @@ count_vals &lt;- function(this_df) {
     return(
         this_df %&gt;% 
             tally() %&gt;% 
-            mutate(freq = (n_pct = n / sum(n)))
+            mutate(freq = (n_pct = (n / sum(n)) * 100))
     )
 }
 
-count_vals_cols &lt;- function(this_df, cols) {
+print_value_counts &lt;- function(this_df, cols) {
     # Print value count and proportions of a list of columns
     lapply(this_df[cols], function(x) {
         x &lt;- enquo(x)
+        kable(
         df %&gt;% 
             group_by(fct_explicit_na(!! x)) %&gt;% 
             count_vals
+        , caption = deparse(substitute(this_df)))
     })
+}
+
+options(scipen=6)
+get_column_values &lt;- function(this_df, cols) {
+    # Print value count and proportions of a list of columns
+    result &lt;- lapply(this_df[cols], function(x) {
+        x &lt;- enquo(x)
+        kable(         # kable because knitr uses scientific notation instead of decimal.
+        this_df %&gt;% 
+            group_by(fct_explicit_na(!! x)) %&gt;% 
+            count_vals
+        , caption = deparse(substitute(this_df)))  # print this_df name not value 
+    })
+    
+    return (result)
 }</code></pre>
 <hr />
 </div>
@@ -321,12 +338,12 @@ $ HITPARKEDCAR    &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, �
 [17] 4/2/13 13:25   5/12/10 21:00  4/2/13         4/2/13 19:07  
 155661 Levels: 1/1/04 1/1/05 1/1/06 1/1/07 1/1/08 1/1/09 ... 9/9/18 9:22</code></pre>
 <p><strong>Observation:</strong> INCDATE does not contain time, INCDTTM includes dates and sometimes time.</p>
-<pre class="r"><code>print_date_range(df)</code></pre>
-<pre><code>  min_INCDATE max_INCDATE
-1  2003-10-06  2019-01-31</code></pre>
 </div>
 <div id="what-is-our-datas-date-range-and-how-many-records-in-each-year" class="section level4">
 <h4>What is our data’s date range, and how many records in each year?</h4>
+<pre class="r"><code>print_date_range(df)</code></pre>
+<pre><code>  min_INCDATE max_INCDATE
+1  2003-10-06  2019-01-31</code></pre>
 <pre class="r"><code>df %&gt;%
     mutate(year = lubridate::year(as.Date(df$INCDATE))) %&gt;%
     group_by(year) %&gt;%
@@ -435,41 +452,212 @@ subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols
 197563            N</code></pre>
 <p><strong>Observation:</strong> Yes. The NULL SEVERITYCODE could be changed to ‘0’ because INJURY, SERIOUSINJURIES and FATALITIES = 0</p>
 </div>
+<div id="there-seems-to-be-several-collision-type-categories-what-do-they-look-like" class="section level4">
+<h4>There seems to be several collision type categories, what do they look like?</h4>
+<pre class="r"><code># Print count and % of column values
+cols &lt;- c('COLLISIONTYPE', 'SDOT_COLDESC', 'ST_COLDESC')
+temp_df_list &lt;- get_column_values(df, cols)
+options(tibble.print_max = 100)
+options(digits=2)
+temp_df_list</code></pre>
+<pre><code>$COLLISIONTYPE
+
+
+Table: this_df
+
+fct_explicit_na(...)        n         freq
+---------------------  ------  -----------
+Angles                  32752   15.9085279
+Cycles                   5207    2.5291800
+Head On                  2008    0.9753396
+Left Turn               13108    6.3669084
+Other                   22952   11.1484041
+Parked Car              45855   22.2730077
+Pedestrian               7110    3.4535184
+Rear Ended              32404   15.7394949
+Right Turn               2821    1.3702356
+Sideswipe               17385    8.4443624
+(Missing)               24275   11.7910209
+
+$SDOT_COLDESC
+
+
+Table: this_df
+
+fct_explicit_na(...)                                                n         freq
+-------------------------------------------------------------  ------  -----------
+DRIVERLESS VEHICLE RAN OFF ROAD - HIT FIXED OBJECT                109    0.0529442
+DRIVERLESS VEHICLE RAN OFF ROAD - NO COLLISION                      2    0.0009715
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE FRONT END AT ANGLE        107    0.0519728
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE LEFT SIDE AT ANGLE         55    0.0267150
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE LEFT SIDE SIDESWIPE         4    0.0019429
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE REAR END                   97    0.0471155
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE RIGHT SIDE AT ANGLE        12    0.0058287
+DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE RIGHT SIDE SIDESWIPE        6    0.0029144
+DRIVERLESS VEHICLE STRUCK OBJECT IN ROADWAY                         4    0.0019429
+DRIVERLESS VEHICLE STRUCK PEDESTRIAN                               15    0.0072859
+MOTOR VEHCILE STRUCK PEDESTRIAN                                  6996    3.3981455
+MOTOR VEHICLE OVERTURNED IN ROAD                                  544    0.2642354
+MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT                    9031    4.3865998
+MOTOR VEHICLE RAN OFF ROAD - NO COLLISION                         162    0.0786878
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE          85095   41.3329318
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, LEFT SIDE AT ANGLE           6540    3.1766540
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, LEFT SIDE SIDESWIPE         10440    5.0709890
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, REAR END                    55290   26.8558411
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, RIGHT SIDE AT ANGLE          1680    0.8160212
+MOTOR VEHICLE STRUCK MOTOR VEHICLE, RIGHT SIDE SIDESWIPE         1724    0.8373932
+MOTOR VEHICLE STRUCK OBJECT IN ROAD                              4554    2.2120004
+MOTOR VEHICLE STRUCK PEDALCYCLIST, FRONT END AT ANGLE            3088    1.4999247
+MOTOR VEHICLE STRUCK PEDALCYCLIST, LEFT SIDE SIDESWIPE            128    0.0621730
+MOTOR VEHICLE STRUCK PEDALCYCLIST, REAR END                       198    0.0961739
+MOTOR VEHICLE STRUCK PEDALCYCLIST, RIGHT SIDE SIDESWIPE            19    0.0092288
+MOTOR VEHICLE STRUCK TRAIN                                         94    0.0456583
+NOT ENOUGH INFORMATION / NOT APPLICABLE                         17899    8.6940260
+PEDALCYCLIST OVERTURNED IN ROAD                                    86    0.0417725
+PEDALCYCLIST RAN OFF ROAD - HIT FIXED OBJECT                        6    0.0029144
+PEDALCYCLIST STRUCK MOTOR VEHICLE FRONT END AT ANGLE             1365    0.6630172
+PEDALCYCLIST STRUCK MOTOR VEHICLE LEFT SIDE AT ANGLE                9    0.0043715
+PEDALCYCLIST STRUCK MOTOR VEHICLE LEFT SIDE SIDESWIPE             192    0.0932596
+PEDALCYCLIST STRUCK MOTOR VEHICLE REAR END                        141    0.0684875
+PEDALCYCLIST STRUCK MOTOR VEHICLE RIGHT SIDE AT ANGLE               2    0.0009715
+PEDALCYCLIST STRUCK MOTOR VEHICLE RIGHT SIDE SIDESWIPE             51    0.0247721
+PEDALCYCLIST STRUCK OBJECT IN ROAD                                 30    0.0145718
+PEDALCYCLIST STRUCK PEDALCYCLIST FRONT END AT ANGLE                 5    0.0024286
+PEDALCYCLIST STRUCK PEDALCYCLIST REAR END                           7    0.0034001
+PEDALCYCLIST STRUCK PEDESTRIAN                                     89    0.0432297
+(Missing)                                                           1    0.0004857
+
+$ST_COLDESC
+
+
+Table: this_df
+
+fct_explicit_na(...)                                                                         n         freq
+--------------------------------------------------------------------------------------  ------  -----------
+All Other Multi Vehicle                                                                      1    0.0004857
+All other non-collision                                                                    100    0.0485727
+Breakage of any part of the vehicle resulting in injury or in further property damage       29    0.0140861
+Domestic animal other (cat, dog, etc)                                                       32    0.0155433
+Entering at angle                                                                        32752   15.9085279
+Fire started in vehicle                                                                      7    0.0034001
+Fixed object                                                                             13010    6.3193072
+From opposite direction - all others                                                      1252    0.6081301
+From opposite direction - both going straight - one stopped - sideswipe                    213    0.1034598
+From opposite direction - both going straight - sideswipe                                  983    0.4774696
+From opposite direction - both moving - head-on                                            624    0.3030936
+From opposite direction - one left turn - one right turn                                   272    0.1321177
+From opposite direction - one left turn - one straight                                    9898    4.8077250
+From opposite direction - one stopped - head-on                                            132    0.0641160
+From same direction - all others                                                          4273    2.0755111
+From same direction - both going straight - both moving - rear-end                        7158    3.4768333
+From same direction - both going straight - both moving - sideswipe                      11946    5.8024937
+From same direction - both going straight - one stopped - rear-end                       24588   11.9430534
+From same direction - both going straight - one stopped - sideswipe                       2263    1.0992000
+From same direction - one left turn - one straight                                        2938    1.4270657
+From same direction - one right turn - one straight                                       2821    1.3702356
+Non-domestic animal (deer, bear, elk, etc)                                                   1    0.0004857
+Not stated                                                                                  42    0.0204005
+One car entering driveway access                                                          1646    0.7995065
+One car entering parked position                                                           682    0.3312658
+One car leaving driveway access                                                           2292    1.1132861
+One car leaving parked position                                                           2671    1.2973766
+One parked--one moving                                                                   42502   20.6443653
+Other object                                                                               362    0.1758331
+Pedalcyclist All Other Involvements ONE UNIT - PEDALCYCLIST ONLY or PEDALCYCLIST STR         9    0.0043715
+Pedalcyclist Strikes Moving Vehicle                                                         99    0.0480870
+Pedalcyclist Strikes Pedalcyclist or Pedestrian                                             16    0.0077716
+Person fell, jumped or was pushed from vehicle                                              31    0.0150575
+Railway Vehicle Strikes Pedalcyclist                                                         2    0.0009715
+Railway Vehicle Strikes Pedestrian                                                          12    0.0058287
+Railway Vehicle Strikes Vehicle                                                             94    0.0456583
+Same direction -- both turning left -- both moving -- rear end                              83    0.0403153
+Same direction -- both turning left -- both moving -- sideswipe                            772    0.3749812
+Same direction -- both turning left -- one stopped -- rear end                              86    0.0417725
+Same direction -- both turning left -- one stopped -- sideswipe                             34    0.0165147
+Same direction -- both turning right -- both moving -- rear end                            156    0.0757734
+Same direction -- both turning right -- both moving -- sideswipe                          1105    0.5367282
+Same direction -- both turning right -- one stopped -- rear end                            333    0.1617471
+Same direction -- both turning right -- one stopped -- sideswipe                            69    0.0335152
+Strikes or Was Struck by a Part of Another Vehicle (Not from Load)                           1    0.0004857
+Strikes or Was Struck by Object from the Load of Another Vehicle                             3    0.0014572
+Vehicle - Pedalcyclist                                                                    5083    2.4689499
+Vehicle backing hits pedestrian                                                            236    0.1146316
+Vehicle going straight hits pedestrian                                                    3216    1.5620978
+Vehicle Hits City Road or Construction Machinery                                            50    0.0242863
+Vehicle Hits Other Road or Construction Machinery                                           11    0.0053430
+Vehicle hits Pedestrian - All Other Actions                                                114    0.0553729
+Vehicle Hits State Road or Construction Machinery                                            1    0.0004857
+Vehicle overturned                                                                         880    0.4274397
+Vehicle Strikes All Other Non-Domestic Animal                                                2    0.0009715
+Vehicle Strikes Deer                                                                         1    0.0004857
+Vehicle Strikes Pedalcyclist                                                               206    0.1000597
+Vehicle Strikes Railway Vehicle                                                             49    0.0238006
+Vehicle Struck by City Road or Construction Machinery                                       11    0.0053430
+Vehicle Struck by Other Road or Construction Machinery                                       9    0.0043715
+Vehicle turning left hits pedestrian                                                      2161    1.0496559
+Vehicle turning right hits pedestrian                                                     1177    0.5717006
+(Missing)                                                                                24275   11.7910209</code></pre>
+<p><strong>Observations:</strong></p>
+<ul>
+<li><p>SDOT_COLDESC rowid 6 includes quotes in the text, and rowid 11 has misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)</p></li>
+<li><p>COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values</p></li>
+<li><p>SDOT_COLDESC has general categories, plus a sub-classification by what does the striking: DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST</p></li>
+<li><p>ST_COLDESC has the most categories (62 non-null), with more sub-classifications of what did the striking than SDOT_COLDESC</p></li>
+</ul>
+<p>According to the Collisions_OD.pdf: * COLLISIONTYPE is presumably assigned by the Seattle Police Department (TODO: Verify)</p>
+<ul>
+<li><p>SDOT_COLDESC is given to the collision by Seattle Department of Transportation</p></li>
+<li><p>ST_COLDESC is a code supplied by the State</p></li>
+</ul>
+<p>We may want to dig into the data more to see if there are contradictions during analysis, or if all 3 categories support each other (a hierarchy of categories?).</p>
+</div>
 <div id="what-do-binary-esque-columns-look-like" class="section level4">
 <h4>What do binary-esque columns look like?</h4>
 <pre class="r"><code># Print count and % of column values
 cols &lt;- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
-count_vals_cols(df, cols)</code></pre>
+print_value_counts(df, cols)</code></pre>
 <pre><code>$UNDERINFL
-# A tibble: 5 x 3
-  `fct_explicit_na(...)`     n   freq
-  &lt;fct&gt;                  &lt;int&gt;  &lt;dbl&gt;
-1 0                      81692 0.397 
-2 1                       4231 0.0206
-3 N                      90957 0.442 
-4 Y                       4743 0.0230
-5 (Missing)              24254 0.118 
+
+
+Table: this_df
+
+fct_explicit_na(...)        n   freq
+---------------------  ------  -----
+0                       81692   39.7
+1                        4231    2.1
+N                       90957   44.2
+Y                        4743    2.3
+(Missing)               24254   11.8
 
 $INATTENTIONIND
-# A tibble: 2 x 3
-  `fct_explicit_na(...)`      n  freq
-  &lt;fct&gt;                   &lt;int&gt; &lt;dbl&gt;
-1 Y                       27961 0.136
-2 (Missing)              177916 0.864
+
+
+Table: this_df
+
+fct_explicit_na(...)         n   freq
+---------------------  -------  -----
+Y                        27961     14
+(Missing)               177916     86
 
 $SPEEDING
-# A tibble: 2 x 3
-  `fct_explicit_na(...)`      n   freq
-  &lt;fct&gt;                   &lt;int&gt;  &lt;dbl&gt;
-1 Y                        9275 0.0451
-2 (Missing)              196602 0.955 
+
+
+Table: this_df
+
+fct_explicit_na(...)         n   freq
+---------------------  -------  -----
+Y                         9275    4.5
+(Missing)               196602   95.5
 
 $HITPARKEDCAR
-# A tibble: 2 x 3
-  `fct_explicit_na(...)`      n   freq
-  &lt;fct&gt;                   &lt;int&gt;  &lt;dbl&gt;
-1 N                      197334 0.959 
-2 Y                        8543 0.0415</code></pre>
+
+
+Table: this_df
+
+fct_explicit_na(...)         n   freq
+---------------------  -------  -----
+N                       197334   95.8
+Y                         8543    4.2</code></pre>
 </div>
 <div id="for-each-counts-of-things-column-what-of-values-are-0" class="section level4">
 <h4>For each counts-of-things column, what % of values are &gt; 0?</h4>
@@ -481,9 +669,9 @@ as.data.frame(lapply(df[,cols],
                      } 
 ))</code></pre>
 <pre><code>  PERSONCOUNT PEDCOUNT PEDCYLCOUNT VEHCOUNT INJURIES SERIOUSINJURIES
-1    88.57473 3.538521    2.661298 88.10649 27.90841        1.390636
+1          89      3.5         2.7       88       28             1.4
   FATALITIES
-1  0.1544612</code></pre>
+1       0.15</code></pre>
 </div>
 <div id="assessment-observations" class="section level3">
 <h3> Assessment Observations</h3>
@@ -703,7 +891,7 @@ hour      50292</code></pre>
 <div id="save-data-to-file-retaining-the-data-structure" class="section level1">
 <h1><br />
 Save data to file, retaining the data structure</h1>
-<pre class="r"><code>save(df, file = 'collisions_clean.rda')</code></pre>
+<pre class="r"><code>save(df, file = '../data/collisions_clean.rda')</code></pre>
 </div>
 
 

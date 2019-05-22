@@ -1,12 +1,13 @@
 ---
 title: "Wrangle Seattle collision data"
-author: Leah Erb
+author: "Leah Erb"
 ---
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Stylize}
 # Stylize our output
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
 ```
+
 
 ```{css echo=FALSE, message=FALSE, warning=FALSE, CSS}
 /* Define a margin before header elements */
@@ -51,19 +52,37 @@ count_vals <- function(this_df) {
     return(
         this_df %>% 
             tally() %>% 
-            mutate(freq = (n_pct = n / sum(n)))
+            mutate(freq = (n_pct = (n / sum(n)) * 100))
     )
 }
 
-count_vals_cols <- function(this_df, cols) {
+print_value_counts <- function(this_df, cols) {
     # Print value count and proportions of a list of columns
     lapply(this_df[cols], function(x) {
         x <- enquo(x)
+        kable(
         df %>% 
             group_by(fct_explicit_na(!! x)) %>% 
             count_vals
+        , caption = deparse(substitute(this_df)))
     })
 }
+
+options(scipen=6)
+get_column_values <- function(this_df, cols) {
+    # Print value count and proportions of a list of columns
+    result <- lapply(this_df[cols], function(x) {
+        x <- enquo(x)
+        kable(         # kable because knitr uses scientific notation instead of decimal.
+        this_df %>% 
+            group_by(fct_explicit_na(!! x)) %>% 
+            count_vals
+        , caption = deparse(substitute(this_df)))  # print this_df name not value 
+    })
+    
+    return (result)
+}
+
 ```
 
 ***
@@ -90,16 +109,13 @@ head(df$INCDATE, 20)
 head(df$INCDTTM, 20)
 ```
 **Observation:** INCDATE does not contain time, INCDTTM includes dates and sometimes time.
-```{r}
-
-print_date_range(df)
-
-```
 
 
 #### What is our data's date range, and how many records in each year?
 
 ```{r}
+print_date_range(df)
+
 df %>%
     mutate(year = lubridate::year(as.Date(df$INCDATE))) %>%
     group_by(year) %>%
@@ -133,12 +149,40 @@ subset(df, is.na(SEVERITYCODE))
 ```
 **Observation:** Yes. The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
+#### There seems to be several collision type categories, what do they look like?
+```{r}
+# Print count and % of column values
+cols <- c('COLLISIONTYPE', 'SDOT_COLDESC', 'ST_COLDESC')
+temp_df_list <- get_column_values(df, cols)
+options(tibble.print_max = 100)
+options(digits=2)
+temp_df_list
+```
+**Observations:**
+
+* SDOT_COLDESC rowid 6 includes quotes in the text, and rowid 11 has misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)
+
+* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values
+
+* SDOT_COLDESC  has general categories, plus a sub-classification by what does the striking: DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST
+
+* ST_COLDESC has the most categories (62 non-null), with more sub-classifications of what did the striking than SDOT_COLDESC
+
+
+According to the Collisions_OD.pdf:
+* COLLISIONTYPE is presumably assigned by the Seattle Police Department (TODO: Verify)
+
+* SDOT_COLDESC is given to the collision by Seattle Department of Transportation
+
+* ST_COLDESC is a code supplied by the State
+
+We may want to dig into the data more to see if there are contradictions during analysis, or if all 3 categories support each other (a hierarchy of categories?).
 
 #### What do binary-esque columns look like?
 ```{r}
 # Print count and % of column values
 cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
-count_vals_cols(df, cols)
+print_value_counts(df, cols)
 ```
 
 #### For each counts-of-things column, what % of values are > 0?
@@ -341,5 +385,5 @@ print_null_count(df)
 #\
 Save data to file, retaining the data structure
 ```{r}
-save(df, file = 'collisions_clean.rda')
+save(df, file = '../data/collisions_clean.rda')
 ```
