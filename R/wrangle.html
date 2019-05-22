@@ -611,6 +611,135 @@ Vehicle turning right hits pedestrian                                           
 </ul>
 <p>We may want to dig into the data more to see if there are contradictions during analysis, or if all 3 categories support each other (a hierarchy of categories?).</p>
 </div>
+<div id="are-sdot_colcode-and-sdot_coldesc-values-11-seattle-dept-of-transportation" class="section level4">
+<h4>Are SDOT_COLCODE and SDOT_COLDESC values 1:1? (Seattle Dept of Transportation)</h4>
+<pre class="r"><code>df %&gt;%
+    group_by(SDOT_COLCODE, SDOT_COLDESC) %&gt;%
+    summarise(count = n())</code></pre>
+<pre><code>Warning: Factor `SDOT_COLDESC` contains implicit NA, consider using
+`forcats::fct_explicit_na`</code></pre>
+<pre><code># A tibble: 40 x 3
+# Groups:   SDOT_COLCODE [40]
+   SDOT_COLCODE SDOT_COLDESC                                          count
+          &lt;int&gt; &lt;fct&gt;                                                 &lt;int&gt;
+ 1            0 NOT ENOUGH INFORMATION / NOT APPLICABLE               17899
+ 2           11 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANG… 85095
+ 3           12 MOTOR VEHICLE STRUCK MOTOR VEHICLE, RIGHT SIDE AT AN…  1680
+ 4           13 MOTOR VEHICLE STRUCK MOTOR VEHICLE, LEFT SIDE AT ANG…  6540
+ 5           14 MOTOR VEHICLE STRUCK MOTOR VEHICLE, REAR END          55290
+ 6           15 MOTOR VEHICLE STRUCK MOTOR VEHICLE, RIGHT SIDE SIDES…  1724
+ 7           16 MOTOR VEHICLE STRUCK MOTOR VEHICLE, LEFT SIDE SIDESW… 10440
+ 8           18 MOTOR VEHICLE STRUCK PEDALCYCLIST, FRONT END AT ANGLE  3088
+ 9           21 MOTOR VEHICLE STRUCK PEDALCYCLIST, REAR END             198
+10           22 MOTOR VEHICLE STRUCK PEDALCYCLIST, RIGHT SIDE SIDESW…    19
+11           23 MOTOR VEHICLE STRUCK PEDALCYCLIST, LEFT SIDE SIDESWI…   128
+12           24 MOTOR VEHCILE STRUCK PEDESTRIAN                        6996
+13           25 MOTOR VEHICLE STRUCK TRAIN                               94
+14           26 MOTOR VEHICLE STRUCK OBJECT IN ROAD                    4554
+15           27 MOTOR VEHICLE RAN OFF ROAD - NO COLLISION               162
+16           28 MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT          9031
+17           29 MOTOR VEHICLE OVERTURNED IN ROAD                        544
+18           31 DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE FRONT END AT…   107
+19           32 &quot;DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE RIGHT SIDE …    12
+20           33 DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE LEFT SIDE AT…    55
+21           34 DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE REAR END         97
+22           35 DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE RIGHT SIDE S…     6
+23           36 DRIVERLESS VEHICLE STRUCK MOTOR VEHICLE LEFT SIDE SI…     4
+24           44 DRIVERLESS VEHICLE STRUCK PEDESTRIAN                     15
+25           46 DRIVERLESS VEHICLE STRUCK OBJECT IN ROADWAY               4
+26           47 DRIVERLESS VEHICLE RAN OFF ROAD - NO COLLISION            2
+27           48 DRIVERLESS VEHICLE RAN OFF ROAD - HIT FIXED OBJECT      109
+28           51 PEDALCYCLIST STRUCK MOTOR VEHICLE FRONT END AT ANGLE   1365
+29           52 PEDALCYCLIST STRUCK MOTOR VEHICLE RIGHT SIDE AT ANGLE     2
+30           53 PEDALCYCLIST STRUCK MOTOR VEHICLE LEFT SIDE AT ANGLE      9
+31           54 PEDALCYCLIST STRUCK MOTOR VEHICLE REAR END              141
+32           55 PEDALCYCLIST STRUCK MOTOR VEHICLE RIGHT SIDE SIDESWI…    51
+33           56 PEDALCYCLIST STRUCK MOTOR VEHICLE LEFT SIDE SIDESWIPE   192
+34           58 PEDALCYCLIST STRUCK PEDALCYCLIST FRONT END AT ANGLE       5
+35           61 PEDALCYCLIST STRUCK PEDALCYCLIST REAR END                 7
+36           64 PEDALCYCLIST STRUCK PEDESTRIAN                           89
+37           66 PEDALCYCLIST STRUCK OBJECT IN ROAD                       30
+38           68 PEDALCYCLIST RAN OFF ROAD - HIT FIXED OBJECT              6
+39           69 PEDALCYCLIST OVERTURNED IN ROAD                          86
+40           NA &lt;NA&gt;                                                      1</code></pre>
+<p><strong>Observations:</strong> Yes.</p>
+</div>
+<div id="are-st_colcode-and-st_coldesc-values-11-states-codes" class="section level4">
+<h4>Are ST_COLCODE and ST_COLDESC values 1:1? (State’s codes)</h4>
+<pre class="r"><code>df %&gt;%
+    group_by(ST_COLCODE, ST_COLDESC) %&gt;%
+    summarise(count = n())</code></pre>
+<pre><code>Warning: Factor `ST_COLDESC` contains implicit NA, consider using
+`forcats::fct_explicit_na`</code></pre>
+<pre><code># A tibble: 63 x 3
+# Groups:   ST_COLCODE [63]
+   ST_COLCODE ST_COLDESC                                              count
+        &lt;int&gt; &lt;fct&gt;                                                   &lt;int&gt;
+ 1          0 Vehicle going straight hits pedestrian                   3216
+ 2          1 Vehicle turning right hits pedestrian                    1177
+ 3          2 Vehicle turning left hits pedestrian                     2161
+ 4          3 Vehicle backing hits pedestrian                           236
+ 5          4 Vehicle hits Pedestrian - All Other Actions               114
+ 6          5 Vehicle Strikes Pedalcyclist                              206
+ 7          6 Pedalcyclist Strikes Moving Vehicle                        99
+ 8          7 Pedalcyclist Strikes Pedalcyclist or Pedestrian            16
+ 9          8 Pedalcyclist All Other Involvements ONE UNIT - PEDALCY…     9
+10         10 Entering at angle                                       32752
+11         11 From same direction - both going straight - both movin… 11946
+12         12 From same direction - both going straight - one stoppe…  2263
+13         13 From same direction - both going straight - both movin…  7158
+14         14 From same direction - both going straight - one stoppe… 24588
+15         15 From same direction - one left turn - one straight       2938
+16         16 From same direction - one right turn - one straight      2821
+17         17 Strikes or Was Struck by Object from the Load of Anoth…     3
+18         18 Strikes or Was Struck by a Part of Another Vehicle (No…     1
+19         19 One car entering parked position                          682
+20         20 One car leaving parked position                          2671
+21         21 One car entering driveway access                         1646
+22         22 One car leaving driveway access                          2292
+23         23 From same direction - all others                         4273
+24         24 From opposite direction - both moving - head-on           624
+25         25 From opposite direction - one stopped - head-on           132
+26         26 From opposite direction - both going straight - sidesw…   983
+27         27 From opposite direction - both going straight - one st…   213
+28         28 From opposite direction - one left turn - one straight   9898
+29         29 From opposite direction - one left turn - one right tu…   272
+30         30 From opposite direction - all others                     1252
+31         31 Not stated                                                 42
+32         32 One parked--one moving                                  42502
+33         40 Railway Vehicle Strikes Vehicle                            94
+34         41 Vehicle Strikes Railway Vehicle                            49
+35         42 Railway Vehicle Strikes Pedestrian                         12
+36         43 Railway Vehicle Strikes Pedalcyclist                        2
+37         45 Vehicle - Pedalcyclist                                   5083
+38         48 Domestic animal other (cat, dog, etc)                      32
+39         49 Non-domestic animal (deer, bear, elk, etc)                  1
+40         50 Fixed object                                            13010
+41         51 Other object                                              362
+42         52 Vehicle overturned                                        880
+43         53 Person fell, jumped or was pushed from vehicle             31
+44         54 Fire started in vehicle                                     7
+45         56 Breakage of any part of the vehicle resulting in injur…    29
+46         57 All other non-collision                                   100
+47         60 Vehicle Hits State Road or Construction Machinery           1
+48         64 Vehicle Hits City Road or Construction Machinery           50
+49         65 Vehicle Struck by City Road or Construction Machinery      11
+50         66 Vehicle Hits Other Road or Construction Machinery          11
+51         67 Vehicle Struck by Other Road or Construction Machinery      9
+52         71 Same direction -- both turning right -- both moving --…  1105
+53         72 Same direction -- both turning right -- one stopped --…    69
+54         73 Same direction -- both turning right -- both moving --…   156
+55         74 Same direction -- both turning right -- one stopped --…   333
+56         81 Same direction -- both turning left -- both moving -- …   772
+57         82 Same direction -- both turning left -- one stopped -- …    34
+58         83 Same direction -- both turning left -- both moving -- …    83
+59         84 Same direction -- both turning left -- one stopped -- …    86
+60         85 Vehicle Strikes Deer                                        1
+61         87 Vehicle Strikes All Other Non-Domestic Animal               2
+62         88 All Other Multi Vehicle                                     1
+63         NA &lt;NA&gt;                                                    24275</code></pre>
+<p><strong>Observations:</strong> Yes.</p>
+</div>
 <div id="what-do-binary-esque-columns-look-like" class="section level4">
 <h4>What do binary-esque columns look like?</h4>
 <pre class="r"><code># Print count and % of column values
@@ -738,19 +867,15 @@ df &lt;- df %&gt;%
         )))
 df$season &lt;- factor(df$season)</code></pre>
 </div>
-<div id="simplify-and-standardize" class="section level3">
-<h3>Simplify and standardize</h3>
+<div id="simplify-create-groups-and-standardize" class="section level3">
+<h3>Simplify, create groups, and standardize</h3>
+<div id="rename-columns" class="section level4">
+<h4>Rename columns</h4>
 <ul>
-<li>Rename columns (easier plot reading)</li>
-<li>UNDERINFL -&gt; DUI</li>
-<li>INATTENTIONID -&gt; DISTRACTED</li>
-<li>Group common SDOTtypes (e.g., combine multiple ‘%Sideswipe%’ types into one named ‘Sideswipe’)</li>
-<li>Shorten SEVERITYDESC values by removing ‘Collision’ from strings</li>
-<li>Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (=‘N’) marked as a feature of the collision</li>
-<li>Change SEVERITYCODE to 0 where NULL</li>
-<li>Change factors to ‘Unknown’ where NULL (WEATHER, ROADCOND, LIGHTCOND)</li>
+<li><p>UNDERINFL -&gt; DUI</p></li>
+<li><p>INATTENTIONID -&gt; DISTRACTED</p></li>
 </ul>
-<pre class="r"><code>### TODO: move this justification to project documentation
+<pre class="r"><code>### TODO: move cleaning step transparency to project documentation
 ### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
 
 ### Also, I was unsure whether I could use the 'DUI' alias for 'UNDERINFL'. In the same report, 'UNDERINFL' is short for 'Under the Influence of Alcohol and/or Drugs' and, without more detailed data available, is lumped together as ' DUI and/or Physical Control of the Vehicle while under the Influence'. 
@@ -763,33 +888,301 @@ df$season &lt;- factor(df$season)</code></pre>
 df &lt;- setnames(df,
                old=c('UNDERINFL', 'INATTENTIONIND'),
                new=c('DUI'      , 'DISTRACTED'),
-               skip_absent = TRUE)
-
-
-# group SDOT collision types into fewer categories.
-# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
-
+               skip_absent = TRUE)</code></pre>
+</div>
+<div id="create-classification-columns" class="section level4">
+<h4>Create classification column(s)</h4>
+<pre class="r"><code># Using SDOT Collision Code Matrix https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf
+# Striking (the one doing)
 df &lt;- df %&gt;%
-    mutate(., SDOTtype = with(., case_when(
-        (SDOT_COLCODE &lt;= 5) ~ 'Hits Pedestrian',
-        (SDOT_COLCODE &gt;= 11 &amp; SDOT_COLCODE &lt;= 12) ~ 'Sideswipe',
-        (SDOT_COLCODE &gt;= 13 &amp; SDOT_COLCODE &lt;= 14) ~ 'Rear End',
-        (SDOT_COLCODE &gt;= 15 &amp; SDOT_COLCODE &lt;= 23) ~ 'From Same Direction',
-        (SDOT_COLCODE &gt;= 24 &amp; SDOT_COLCODE &lt;= 25) ~ 'Head On',
-        (SDOT_COLCODE &gt;= 26 &amp; SDOT_COLCODE &lt;= 27) ~ 'Sideswipe',
-        (SDOT_COLCODE &gt;= 28 &amp; SDOT_COLCODE &lt;= 30) ~ 'From Opposite Direction',
-        (SDOT_COLCODE &gt;= 44 &amp; SDOT_COLCODE &lt;= 46) ~ 'Cycle',
-        (SDOT_COLCODE &gt;= 47 &amp; SDOT_COLCODE &lt;= 51) ~ 'Struck Object',
-        (SDOT_COLCODE &gt;= 53 &amp; SDOT_COLCODE &lt;= 57) ~ 'Non-Collision',
-        (SDOT_COLCODE &gt;= 71 &amp; SDOT_COLCODE &lt;= 72) ~ 'Sideswipe',
-        (SDOT_COLCODE &gt;= 73 &amp; SDOT_COLCODE &lt;= 74) ~ 'Rear End',
-        (SDOT_COLCODE &gt;= 81 &amp; SDOT_COLCODE &lt;= 82) ~ 'Sideswipe',
-        (SDOT_COLCODE &gt;= 83 &amp; SDOT_COLCODE &lt;= 84) ~ 'Rear End',
-        is.na(SDOT_COLCODE) ~ 'Unknown',
+    mutate(., SDOT_striking = with(., case_when(
+        (SDOT_COLCODE == 1)   ~ 'Pedestrian',
+        (SDOT_COLCODE == 2)   ~ 'Motor Vehicle',
+        (SDOT_COLCODE == 3)   ~ 'Pedalcyclist',
+        (SDOT_COLCODE &gt;= 4 &amp; SDOT_COLCODE &lt;= 6)   ~ 'Train',
+        (SDOT_COLCODE &gt;= 10 &amp; SDOT_COLCODE &lt;= 29) ~ 'Motor Vehicle',
+        (SDOT_COLCODE &gt;= 30 &amp; SDOT_COLCODE &lt;= 49) ~ 'Driverless Motor Vehicle',
+        (SDOT_COLCODE &gt;= 50 &amp; SDOT_COLCODE &lt;= 69) ~ 'Pedalcyclist',
+        is.na(SDOT_COLCODE) ~ 'Motor Vehicle',
+        TRUE ~ 'Unknown / Not applicable'
+        )))
+# validate 
+print_value_counts(df, 'SDOT_striking')</code></pre>
+<pre><code>$SDOT_striking
+
+
+Table: this_df
+
+fct_explicit_na(...)             n    freq
+-------------------------  -------  ------
+Driverless Motor Vehicle       411    0.20
+Motor Vehicle               185584   90.14
+Pedalcyclist                  1983    0.96
+Unknown / Not applicable     17899    8.69</code></pre>
+<pre class="r"><code># Struck (the one getting struck); Note: Pedestrian includes Pedalcyclist not in traffic
+df &lt;- df %&gt;%
+    mutate(., SDOT_struck = with(., case_when(
+        (SDOT_COLCODE == 1 | SDOT_COLCODE == 3 | SDOT_COLCODE == 4 )   ~ 'Motor Vehicle',
+        (SDOT_COLCODE == 2 | SDOT_COLCODE == 5)   ~ 'Driverless Motor Vehicle',
+        (SDOT_COLCODE == 6)                       ~ 'Pedalcyclist',
+        (SDOT_COLCODE &gt;= 7 &amp; SDOT_COLCODE &lt;= 8)   ~ 'Pedestrian', 
+        (SDOT_COLCODE &gt;= 10 &amp; SDOT_COLCODE &lt;= 16) ~ 'Motor Vehicle',
+        (SDOT_COLCODE &gt;= 17 &amp; SDOT_COLCODE &lt;= 23) ~ 'Pedalcyclist',
+        (SDOT_COLCODE &gt;= 17 &amp; SDOT_COLCODE &lt;= 23) ~ 'Pedalcyclist',
+        (SDOT_COLCODE == 24 | SDOT_COLCODE == 44 | SDOT_COLCODE == 64) ~ 'Pedestrian',
+        (SDOT_COLCODE == 25 | SDOT_COLCODE == 45 | SDOT_COLCODE == 65) ~ 'Train',
+        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object in Roadway',
+        (SDOT_COLCODE == 27 | SDOT_COLCODE == 47 | SDOT_COLCODE == 67) ~ 'Non Collision',
+        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Fixed Object',
+        (SDOT_COLCODE == 29 | SDOT_COLCODE == 49 | SDOT_COLCODE == 69) ~ 'Non Collision',
+        (SDOT_COLCODE &gt;= 30 &amp; SDOT_COLCODE &lt;= 36) ~ 'Motor Vehicle',
+        (SDOT_COLCODE &gt;= 37 &amp; SDOT_COLCODE &lt;= 43) ~ 'Pedalcyclist',
+        (SDOT_COLCODE &gt;= 50 &amp; SDOT_COLCODE &lt;= 56) ~ 'Motor Vehicle',
+        (SDOT_COLCODE &gt;= 57 &amp; SDOT_COLCODE &lt;= 63) ~ 'Pedalcyclist',
+        (SDOT_COLCODE &gt;= 70 &amp; SDOT_COLCODE &lt;= 86) ~ 'Pedestrian',
+        is.na(SDOT_COLCODE) ~ 'Motor Vehicle',
+        TRUE ~ 'Unknown / Not applicable'
+        )))
+# validate 
+print_value_counts(df, 'SDOT_struck')</code></pre>
+<pre><code>$SDOT_struck
+
+
+Table: this_df
+
+fct_explicit_na(...)             n    freq
+-------------------------  -------  ------
+Fixed Object                  9146    4.44
+Motor Vehicle               162811   79.08
+Non Collision                  794    0.39
+Object in Roadway             4588    2.23
+Pedalcyclist                  3445    1.67
+Pedestrian                    7100    3.45
+Train                           94    0.05
+Unknown / Not applicable     17899    8.69</code></pre>
+<pre class="r"><code># validate striking and struck together
+df %&gt;%
+    group_by(SDOT_striking, SDOT_struck) %&gt;%
+    summarise(count = n())</code></pre>
+<pre><code># A tibble: 19 x 3
+# Groups:   SDOT_striking [4]
+   SDOT_striking            SDOT_struck               count
+   &lt;chr&gt;                    &lt;chr&gt;                     &lt;int&gt;
+ 1 Driverless Motor Vehicle Fixed Object                109
+ 2 Driverless Motor Vehicle Motor Vehicle               281
+ 3 Driverless Motor Vehicle Non Collision                 2
+ 4 Driverless Motor Vehicle Object in Roadway             4
+ 5 Driverless Motor Vehicle Pedestrian                   15
+ 6 Motor Vehicle            Fixed Object               9031
+ 7 Motor Vehicle            Motor Vehicle            160770
+ 8 Motor Vehicle            Non Collision               706
+ 9 Motor Vehicle            Object in Roadway          4554
+10 Motor Vehicle            Pedalcyclist               3433
+11 Motor Vehicle            Pedestrian                 6996
+12 Motor Vehicle            Train                        94
+13 Pedalcyclist             Fixed Object                  6
+14 Pedalcyclist             Motor Vehicle              1760
+15 Pedalcyclist             Non Collision                86
+16 Pedalcyclist             Object in Roadway            30
+17 Pedalcyclist             Pedalcyclist                 12
+18 Pedalcyclist             Pedestrian                   89
+19 Unknown / Not applicable Unknown / Not applicable  17899</code></pre>
+<pre class="r"><code># Group common SDOTtypes (e.g., combine 8 '%Sideswipe%' types into one 'Sideswipe')
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+df &lt;- df %&gt;%
+    mutate(., ST_COLDESC_grouped = with(., case_when(
+        (ST_COLCODE &lt;= 5) ~ 'Vehicle Hits Pedestrian',
+        (ST_COLCODE == 10) ~ 'Entering at angle',   # over 30k in this group
+        (ST_COLCODE &gt;= 11 &amp; ST_COLCODE &lt;= 12) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 13 &amp; ST_COLCODE &lt;= 14) ~ 'Rear End',
+        (ST_COLCODE &gt;= 15 &amp; ST_COLCODE &lt;= 23) ~ 'From Same Direction',
+        (ST_COLCODE &gt;= 24 &amp; ST_COLCODE &lt;= 25) ~ 'Head On',
+        (ST_COLCODE &gt;= 26 &amp; ST_COLCODE &lt;= 27) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 28 &amp; ST_COLCODE &lt;= 30) ~ 'From Opposite Direction',
+        (ST_COLCODE == 32) ~ 'One parked--one moving',   # over 40k in this group
+        (ST_COLCODE &gt;= 44 &amp; ST_COLCODE &lt;= 46) ~ 'Pedalcyclist',
+        (ST_COLCODE &gt;= 47 &amp; ST_COLCODE &lt;= 51) ~ 'Struck Object',
+        (ST_COLCODE &gt;= 53 &amp; ST_COLCODE &lt;= 57) ~ 'Non-Collision',
+        (ST_COLCODE &gt;= 71 &amp; ST_COLCODE &lt;= 72) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 73 &amp; ST_COLCODE &lt;= 74) ~ 'Rear End',
+        (ST_COLCODE &gt;= 81 &amp; ST_COLCODE &lt;= 82) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 83 &amp; ST_COLCODE &lt;= 84) ~ 'Rear End',
+        is.na(ST_COLCODE) ~ 'Unknown',
         TRUE ~ 'Other Collision'
     )))
 
-# shorten SEVERITYDESC values by removing ' Collision' from strings
+# validate 
+print_value_counts(df, 'ST_COLDESC_grouped')</code></pre>
+<pre><code>$ST_COLDESC_grouped
+
+
+Table: this_df
+
+fct_explicit_na(...)           n    freq
+------------------------  ------  ------
+Entering at angle          32752   15.91
+From Opposite Direction    11422    5.55
+From Same Direction        17327    8.42
+Head On                      756    0.37
+Non-Collision                167    0.08
+One parked--one moving     42502   20.64
+Other Collision             1289    0.63
+Pedalcyclist                5083    2.47
+Rear End                   32404   15.74
+Sideswipe                  17385    8.44
+Struck Object              13405    6.51
+Unknown                    24275   11.79
+Vehicle Hits Pedestrian     7110    3.45</code></pre>
+<pre class="r"><code># State's interpretation of Striking (the one doing)
+df &lt;- df %&gt;%
+    mutate(., ST_striking = with(., case_when(
+        (ST_COLCODE &gt;= 0 &amp; ST_COLCODE &lt;= 5)   ~ 'Vehicle',
+        (ST_COLCODE &gt;= 6 &amp; ST_COLCODE &lt;= 8)   ~ 'Pedalcyclist',
+        (ST_COLCODE &gt;= 10 &amp; ST_COLCODE &lt;= 30) ~ 'Vehicle',
+        (ST_COLCODE == 31)   ~ 'Not Stated',
+        (ST_COLCODE == 32)   ~ 'Vehicle',
+        (ST_COLCODE == 40 | ST_COLCODE == 42 | ST_COLCODE == 43)  ~ 'Railway Vehicle',
+        (ST_COLCODE == 41)   ~ 'Vehicle',
+        (ST_COLCODE &gt;= 45 &amp; ST_COLCODE &lt;= 52)  ~ 'Vehicle',
+        (ST_COLCODE &gt;= 53 &amp; ST_COLCODE &lt;= 57)  ~ 'Not applicable',
+        (ST_COLCODE == 60 | ST_COLCODE &lt;= 62 | ST_COLCODE &lt;= 64 | ST_COLCODE &lt;= 66) ~ 'Vehicle',
+        (ST_COLCODE == 61 | ST_COLCODE &lt;= 63 | ST_COLCODE &lt;= 65 | ST_COLCODE &lt;= 67) ~ 'Road or Construction Machinery',
+        (ST_COLCODE &gt;= 71 &amp; ST_COLCODE &lt;= 88)  ~ 'Vehicle',
+        is.na(ST_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other'
+    )))
+
+# State's interpretation of Struck (the one struck)
+df &lt;- df %&gt;%
+    mutate(., ST_struck = with(., case_when(
+        (ST_COLCODE &gt;= 0 &amp; ST_COLCODE &lt;= 5)   ~ 'Pedestrian',
+        (ST_COLCODE == 6)   ~ 'Moving Vehicle',
+        (ST_COLCODE == 7)   ~ 'Pedalcyclist or Pedestrian',
+        (ST_COLCODE == 8)   ~ 'Other',
+        (ST_COLCODE &gt;= 10 &amp; ST_COLCODE &lt;= 30) ~ 'Vehicle',
+        (ST_COLCODE == 31)   ~ 'Not Stated',
+        (ST_COLCODE == 32)   ~ 'Vehicle',
+        (ST_COLCODE == 40)   ~ 'Vehicle',
+        (ST_COLCODE == 41)   ~ 'Railway Vehicle',
+        (ST_COLCODE &gt;= 42 &amp; ST_COLCODE &lt;= 45)  ~ 'Pedestrian or Pedalcyclist',
+        (ST_COLCODE &gt;= 48 &amp; ST_COLCODE &lt;= 51)  ~ 'Animal or Object',
+        (ST_COLCODE &gt;= 52 &amp; ST_COLCODE &lt;= 57)  ~ 'Not applicable',
+        (ST_COLCODE &gt;= 60 &amp; ST_COLCODE &lt;= 62 | ST_COLCODE &lt;= 64 | ST_COLCODE &lt;= 66) ~ 'Road or Construction Machiner',
+        (ST_COLCODE &gt;= 61 &amp; ST_COLCODE &lt;= 63 | ST_COLCODE &lt;= 65 | ST_COLCODE &lt;= 67) ~ 'Vehicle',
+        (ST_COLCODE &gt;= 71 &amp; ST_COLCODE &lt;= 84)  ~ 'Vehicle',
+        (ST_COLCODE &gt;= 85 &amp; ST_COLCODE &lt;= 87)  ~ 'Animal or Object',
+        (ST_COLCODE == 88)   ~ 'Vehicle',
+        is.na(ST_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other'
+    )))
+
+df %&gt;% filter(!is.na(ST_COLDESC)) %&gt;%
+    group_by(ST_COLCODE, ST_COLDESC) %&gt;%
+    summarise(count = n())</code></pre>
+<pre><code># A tibble: 62 x 3
+# Groups:   ST_COLCODE [62]
+   ST_COLCODE ST_COLDESC                                              count
+        &lt;int&gt; &lt;fct&gt;                                                   &lt;int&gt;
+ 1          0 Vehicle going straight hits pedestrian                   3216
+ 2          1 Vehicle turning right hits pedestrian                    1177
+ 3          2 Vehicle turning left hits pedestrian                     2161
+ 4          3 Vehicle backing hits pedestrian                           236
+ 5          4 Vehicle hits Pedestrian - All Other Actions               114
+ 6          5 Vehicle Strikes Pedalcyclist                              206
+ 7          6 Pedalcyclist Strikes Moving Vehicle                        99
+ 8          7 Pedalcyclist Strikes Pedalcyclist or Pedestrian            16
+ 9          8 Pedalcyclist All Other Involvements ONE UNIT - PEDALCY…     9
+10         10 Entering at angle                                       32752
+11         11 From same direction - both going straight - both movin… 11946
+12         12 From same direction - both going straight - one stoppe…  2263
+13         13 From same direction - both going straight - both movin…  7158
+14         14 From same direction - both going straight - one stoppe… 24588
+15         15 From same direction - one left turn - one straight       2938
+16         16 From same direction - one right turn - one straight      2821
+17         17 Strikes or Was Struck by Object from the Load of Anoth…     3
+18         18 Strikes or Was Struck by a Part of Another Vehicle (No…     1
+19         19 One car entering parked position                          682
+20         20 One car leaving parked position                          2671
+21         21 One car entering driveway access                         1646
+22         22 One car leaving driveway access                          2292
+23         23 From same direction - all others                         4273
+24         24 From opposite direction - both moving - head-on           624
+25         25 From opposite direction - one stopped - head-on           132
+26         26 From opposite direction - both going straight - sidesw…   983
+27         27 From opposite direction - both going straight - one st…   213
+28         28 From opposite direction - one left turn - one straight   9898
+29         29 From opposite direction - one left turn - one right tu…   272
+30         30 From opposite direction - all others                     1252
+31         31 Not stated                                                 42
+32         32 One parked--one moving                                  42502
+33         40 Railway Vehicle Strikes Vehicle                            94
+34         41 Vehicle Strikes Railway Vehicle                            49
+35         42 Railway Vehicle Strikes Pedestrian                         12
+36         43 Railway Vehicle Strikes Pedalcyclist                        2
+37         45 Vehicle - Pedalcyclist                                   5083
+38         48 Domestic animal other (cat, dog, etc)                      32
+39         49 Non-domestic animal (deer, bear, elk, etc)                  1
+40         50 Fixed object                                            13010
+41         51 Other object                                              362
+42         52 Vehicle overturned                                        880
+43         53 Person fell, jumped or was pushed from vehicle             31
+44         54 Fire started in vehicle                                     7
+45         56 Breakage of any part of the vehicle resulting in injur…    29
+46         57 All other non-collision                                   100
+47         60 Vehicle Hits State Road or Construction Machinery           1
+48         64 Vehicle Hits City Road or Construction Machinery           50
+49         65 Vehicle Struck by City Road or Construction Machinery      11
+50         66 Vehicle Hits Other Road or Construction Machinery          11
+51         67 Vehicle Struck by Other Road or Construction Machinery      9
+52         71 Same direction -- both turning right -- both moving --…  1105
+53         72 Same direction -- both turning right -- one stopped --…    69
+54         73 Same direction -- both turning right -- both moving --…   156
+55         74 Same direction -- both turning right -- one stopped --…   333
+56         81 Same direction -- both turning left -- both moving -- …   772
+57         82 Same direction -- both turning left -- one stopped -- …    34
+58         83 Same direction -- both turning left -- both moving -- …    83
+59         84 Same direction -- both turning left -- one stopped -- …    86
+60         85 Vehicle Strikes Deer                                        1
+61         87 Vehicle Strikes All Other Non-Domestic Animal               2
+62         88 All Other Multi Vehicle                                     1</code></pre>
+<pre class="r"><code>df %&gt;% 
+    group_by(ST_striking, ST_struck, ST_COLDESC_grouped) %&gt;%
+    summarise(count = n())</code></pre>
+<pre><code># A tibble: 24 x 4
+# Groups:   ST_striking, ST_struck [16]
+   ST_striking             ST_struck             ST_COLDESC_grouped   count
+   &lt;chr&gt;                   &lt;chr&gt;                 &lt;chr&gt;                &lt;int&gt;
+ 1 Not applicable          Not applicable        Non-Collision          167
+ 2 Not Stated              Not Stated            Other Collision         42
+ 3 Pedalcyclist            Moving Vehicle        Other Collision         99
+ 4 Pedalcyclist            Other                 Other Collision          9
+ 5 Pedalcyclist            Pedalcyclist or Pede… Other Collision         16
+ 6 Railway Vehicle         Pedestrian or Pedalc… Other Collision         14
+ 7 Railway Vehicle         Vehicle               Other Collision         94
+ 8 Road or Construction M… Vehicle               Other Collision          9
+ 9 Unknown                 Unknown               Unknown              24275
+10 Vehicle                 Animal or Object      Other Collision          3
+11 Vehicle                 Animal or Object      Struck Object        13405
+12 Vehicle                 Not applicable        Other Collision        880
+13 Vehicle                 Pedestrian            Vehicle Hits Pedest…  7110
+14 Vehicle                 Pedestrian or Pedalc… Pedalcyclist          5083
+15 Vehicle                 Railway Vehicle       Other Collision         49
+16 Vehicle                 Road or Construction… Other Collision         73
+17 Vehicle                 Vehicle               Entering at angle    32752
+18 Vehicle                 Vehicle               From Opposite Direc… 11422
+19 Vehicle                 Vehicle               From Same Direction  17327
+20 Vehicle                 Vehicle               Head On                756
+21 Vehicle                 Vehicle               One parked--one mov… 42502
+22 Vehicle                 Vehicle               Other Collision          1
+23 Vehicle                 Vehicle               Rear End             32404
+24 Vehicle                 Vehicle               Sideswipe            17385</code></pre>
+<ul>
+<li>Shorten SEVERITYDESC values by removing ‘Collision’ from strings</li>
+<li>Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (=‘N’) marked as a feature of the collision</li>
+<li>Change SEVERITYCODE to 0 where NULL</li>
+<li>Change factors to ‘Unknown’ where NULL (WEATHER, ROADCOND, LIGHTCOND)</li>
+</ul>
+<pre class="r"><code># shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC &lt;- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
 # binary-ize DUI (Y/N) 
@@ -823,6 +1216,7 @@ df &lt;- df %&gt;%
 
 df[cols] &lt;- lapply(df[cols], as.factor)</code></pre>
 </div>
+</div>
 <div id="fix-and-trim" class="section level3">
 <h3>Fix and trim</h3>
 <ul>
@@ -852,35 +1246,39 @@ print_date_range(df)</code></pre>
 <h3>Data structure after cleaning</h3>
 <pre class="r"><code>glimpse(df)</code></pre>
 <pre><code>Observations: 205,876
-Variables: 28
-$ ADDRTYPE        &lt;fct&gt; Block, Block, Block, Intersection, Intersection,…
-$ SEVERITYCODE    &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, 2, 1, 1, …
-$ SEVERITYDESC    &lt;fct&gt; Property Damage Only, Property Damage Only, Prop…
-$ COLLISIONTYPE   &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cycles, Par…
-$ PERSONCOUNT     &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, 3, 2, 2, …
-$ PEDCOUNT        &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ PEDCYLCOUNT     &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ VEHCOUNT        &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, 3, 2, 2, …
-$ INJURIES        &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, 1, 0, 0, …
-$ SERIOUSINJURIES &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ FATALITIES      &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ INCDATE         &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 2005-07-28,…
-$ INCDTTM         &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 10:01, 7/2…
-$ JUNCTIONTYPE    &lt;fct&gt; Mid-Block (not related to intersection), Mid-Blo…
-$ SDOT_COLCODE    &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14, 11, 11, …
-$ DISTRACTED      &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, N, N, N, …
-$ DUI             &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ WEATHER         &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raining, Clear…
-$ ROADCOND        &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet, Dry, Dry…
-$ LIGHTCOND       &lt;fct&gt; Daylight, Daylight, Daylight, Daylight, Dusk, Da…
-$ SPEEDING        &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ year            &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 2004, 2005, …
-$ month           &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11, 7, 4, 3…
-$ time            &lt;dttm&gt; 2019-05-21 15:10:00, 2019-05-21 14:00:00, 2019-…
-$ hour            &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, 8, …
-$ day_part        &lt;fct&gt; Afternoon, Afternoon, Morning, Morning, Evening,…
-$ season          &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, Winter, Fa…
-$ SDOTtype        &lt;chr&gt; &quot;Sideswipe&quot;, &quot;Sideswipe&quot;, &quot;Sideswipe&quot;, &quot;Sideswip…</code></pre>
+Variables: 32
+$ ADDRTYPE           &lt;fct&gt; Block, Block, Block, Intersection, Intersecti…
+$ SEVERITYCODE       &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, 2, 1, …
+$ SEVERITYDESC       &lt;fct&gt; Property Damage Only, Property Damage Only, P…
+$ COLLISIONTYPE      &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cycles, …
+$ PERSONCOUNT        &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, 3, 2, …
+$ PEDCOUNT           &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ PEDCYLCOUNT        &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ VEHCOUNT           &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, 3, 2, …
+$ INJURIES           &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, 1, 0, …
+$ SERIOUSINJURIES    &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ FATALITIES         &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ INCDATE            &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 2005-07-…
+$ INCDTTM            &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 10:01, …
+$ JUNCTIONTYPE       &lt;fct&gt; Mid-Block (not related to intersection), Mid-…
+$ SDOT_COLCODE       &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14, 11, 1…
+$ DISTRACTED         &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, N, N, …
+$ DUI                &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ WEATHER            &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raining, Cl…
+$ ROADCOND           &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet, Dry, …
+$ LIGHTCOND          &lt;fct&gt; Daylight, Daylight, Daylight, Daylight, Dusk,…
+$ SPEEDING           &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ year               &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 2004, 200…
+$ month              &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11, 7, 4…
+$ time               &lt;dttm&gt; 2019-05-22 15:10:00, 2019-05-22 14:00:00, 20…
+$ hour               &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, …
+$ day_part           &lt;fct&gt; Afternoon, Afternoon, Morning, Morning, Eveni…
+$ season             &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, Winter,…
+$ SDOT_striking      &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehi…
+$ SDOT_struck        &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehi…
+$ ST_COLDESC_grouped &lt;chr&gt; &quot;From Opposite Direction&quot;, &quot;Sideswipe&quot;, &quot;From…
+$ ST_striking        &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;…
+$ ST_struck          &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;…</code></pre>
 <pre class="r"><code># Any lingering NULLs?
 print_null_count(df)</code></pre>
 <pre><code>     null_count

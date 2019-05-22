@@ -178,6 +178,24 @@ According to the Collisions_OD.pdf:
 
 We may want to dig into the data more to see if there are contradictions during analysis, or if all 3 categories support each other (a hierarchy of categories?).
 
+
+#### Are SDOT_COLCODE and SDOT_COLDESC values 1:1? (Seattle Dept of Transportation)
+```{r}
+df %>%
+    group_by(SDOT_COLCODE, SDOT_COLDESC) %>%
+    summarise(count = n())
+```
+**Observations:** Yes.
+
+#### Are ST_COLCODE and ST_COLDESC values 1:1?  (State's codes)
+```{r}
+df %>%
+    group_by(ST_COLCODE, ST_COLDESC) %>%
+    summarise(count = n())
+```
+**Observations:** Yes.
+
+
 #### What do binary-esque columns look like?
 ```{r}
 # Print count and % of column values
@@ -266,18 +284,15 @@ df <- df %>%
 df$season <- factor(df$season)
 ```
 
-### Simplify and standardize
-* Rename columns (easier plot reading)
-+ UNDERINFL -> DUI
-+ INATTENTIONID -> DISTRACTED
-* Group common SDOTtypes (e.g., combine multiple '%Sideswipe%' types into one named 'Sideswipe')
-* Shorten SEVERITYDESC values by removing ' Collision' from strings
-* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
-* Change SEVERITYCODE to 0 where NULL
-* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
 
+### Simplify, create groups, and standardize
+
+#### Rename columns
+* UNDERINFL -> DUI
+
+* INATTENTIONID -> DISTRACTED
 ```{r}
-### TODO: move this justification to project documentation
+### TODO: move cleaning step transparency to project documentation
 ### I was not convinced I could substitute 'inattentionind' to 'distracted', because there is a subtle difference and I did not want to be misleading. Then I read the WADOT's 2015 Annual Collision Summary, which (unless they are listing the details of the type of inattention/distraction, which are not available in the downloaded dataset), refer to 'inattention' as 'inattention/distraction', every time. This suggests that I can safely substitute 'distracted' for easier reading of this report.
 
 ### Also, I was unsure whether I could use the 'DUI' alias for 'UNDERINFL'. In the same report, 'UNDERINFL' is short for 'Under the Influence of Alcohol and/or Drugs' and, without more detailed data available, is lumped together as ' DUI and/or Physical Control of the Vehicle while under the Influence'. 
@@ -291,31 +306,153 @@ df <- setnames(df,
                old=c('UNDERINFL', 'INATTENTIONIND'),
                new=c('DUI'      , 'DISTRACTED'),
                skip_absent = TRUE)
+```
 
 
-# group SDOT collision types into fewer categories.
-# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
-
+#### Create classification column(s)
+```{r}
+# Using SDOT Collision Code Matrix https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf
+# Striking (the one doing)
 df <- df %>%
-    mutate(., SDOTtype = with(., case_when(
-        (SDOT_COLCODE <= 5) ~ 'Hits Pedestrian',
-        (SDOT_COLCODE >= 11 & SDOT_COLCODE <= 12) ~ 'Sideswipe',
-        (SDOT_COLCODE >= 13 & SDOT_COLCODE <= 14) ~ 'Rear End',
-        (SDOT_COLCODE >= 15 & SDOT_COLCODE <= 23) ~ 'From Same Direction',
-        (SDOT_COLCODE >= 24 & SDOT_COLCODE <= 25) ~ 'Head On',
-        (SDOT_COLCODE >= 26 & SDOT_COLCODE <= 27) ~ 'Sideswipe',
-        (SDOT_COLCODE >= 28 & SDOT_COLCODE <= 30) ~ 'From Opposite Direction',
-        (SDOT_COLCODE >= 44 & SDOT_COLCODE <= 46) ~ 'Cycle',
-        (SDOT_COLCODE >= 47 & SDOT_COLCODE <= 51) ~ 'Struck Object',
-        (SDOT_COLCODE >= 53 & SDOT_COLCODE <= 57) ~ 'Non-Collision',
-        (SDOT_COLCODE >= 71 & SDOT_COLCODE <= 72) ~ 'Sideswipe',
-        (SDOT_COLCODE >= 73 & SDOT_COLCODE <= 74) ~ 'Rear End',
-        (SDOT_COLCODE >= 81 & SDOT_COLCODE <= 82) ~ 'Sideswipe',
-        (SDOT_COLCODE >= 83 & SDOT_COLCODE <= 84) ~ 'Rear End',
-        is.na(SDOT_COLCODE) ~ 'Unknown',
+    mutate(., SDOT_striking = with(., case_when(
+        (SDOT_COLCODE == 1)   ~ 'Pedestrian',
+        (SDOT_COLCODE == 2)   ~ 'Motor Vehicle',
+        (SDOT_COLCODE == 3)   ~ 'Pedalcyclist',
+        (SDOT_COLCODE >= 4 & SDOT_COLCODE <= 6)   ~ 'Train',
+        (SDOT_COLCODE >= 10 & SDOT_COLCODE <= 29) ~ 'Motor Vehicle',
+        (SDOT_COLCODE >= 30 & SDOT_COLCODE <= 49) ~ 'Driverless Motor Vehicle',
+        (SDOT_COLCODE >= 50 & SDOT_COLCODE <= 69) ~ 'Pedalcyclist',
+        is.na(SDOT_COLCODE) ~ 'Motor Vehicle',
+        TRUE ~ 'Unknown / Not applicable'
+        )))
+# validate 
+print_value_counts(df, 'SDOT_striking')
+
+# Struck (the one getting struck); Note: Pedestrian includes Pedalcyclist not in traffic
+df <- df %>%
+    mutate(., SDOT_struck = with(., case_when(
+        (SDOT_COLCODE == 1 | SDOT_COLCODE == 3 | SDOT_COLCODE == 4 )   ~ 'Motor Vehicle',
+        (SDOT_COLCODE == 2 | SDOT_COLCODE == 5)   ~ 'Driverless Motor Vehicle',
+        (SDOT_COLCODE == 6)                       ~ 'Pedalcyclist',
+        (SDOT_COLCODE >= 7 & SDOT_COLCODE <= 8)   ~ 'Pedestrian', 
+        (SDOT_COLCODE >= 10 & SDOT_COLCODE <= 16) ~ 'Motor Vehicle',
+        (SDOT_COLCODE >= 17 & SDOT_COLCODE <= 23) ~ 'Pedalcyclist',
+        (SDOT_COLCODE >= 17 & SDOT_COLCODE <= 23) ~ 'Pedalcyclist',
+        (SDOT_COLCODE == 24 | SDOT_COLCODE == 44 | SDOT_COLCODE == 64) ~ 'Pedestrian',
+        (SDOT_COLCODE == 25 | SDOT_COLCODE == 45 | SDOT_COLCODE == 65) ~ 'Train',
+        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object in Roadway',
+        (SDOT_COLCODE == 27 | SDOT_COLCODE == 47 | SDOT_COLCODE == 67) ~ 'Non Collision',
+        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Fixed Object',
+        (SDOT_COLCODE == 29 | SDOT_COLCODE == 49 | SDOT_COLCODE == 69) ~ 'Non Collision',
+        (SDOT_COLCODE >= 30 & SDOT_COLCODE <= 36) ~ 'Motor Vehicle',
+        (SDOT_COLCODE >= 37 & SDOT_COLCODE <= 43) ~ 'Pedalcyclist',
+        (SDOT_COLCODE >= 50 & SDOT_COLCODE <= 56) ~ 'Motor Vehicle',
+        (SDOT_COLCODE >= 57 & SDOT_COLCODE <= 63) ~ 'Pedalcyclist',
+        (SDOT_COLCODE >= 70 & SDOT_COLCODE <= 86) ~ 'Pedestrian',
+        is.na(SDOT_COLCODE) ~ 'Motor Vehicle',
+        TRUE ~ 'Unknown / Not applicable'
+        )))
+# validate 
+print_value_counts(df, 'SDOT_struck')
+
+# validate striking and struck together
+df %>%
+    group_by(SDOT_striking, SDOT_struck) %>%
+    summarise(count = n())
+
+
+# Group common SDOTtypes (e.g., combine 8 '%Sideswipe%' types into one 'Sideswipe')
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+df <- df %>%
+    mutate(., ST_COLDESC_grouped = with(., case_when(
+        (ST_COLCODE <= 5) ~ 'Vehicle Hits Pedestrian',
+        (ST_COLCODE == 10) ~ 'Entering at angle',   # over 30k in this group
+        (ST_COLCODE >= 11 & ST_COLCODE <= 12) ~ 'Sideswipe',
+        (ST_COLCODE >= 13 & ST_COLCODE <= 14) ~ 'Rear End',
+        (ST_COLCODE >= 15 & ST_COLCODE <= 23) ~ 'From Same Direction',
+        (ST_COLCODE >= 24 & ST_COLCODE <= 25) ~ 'Head On',
+        (ST_COLCODE >= 26 & ST_COLCODE <= 27) ~ 'Sideswipe',
+        (ST_COLCODE >= 28 & ST_COLCODE <= 30) ~ 'From Opposite Direction',
+        (ST_COLCODE == 32) ~ 'One parked--one moving',   # over 40k in this group
+        (ST_COLCODE >= 44 & ST_COLCODE <= 46) ~ 'Pedalcyclist',
+        (ST_COLCODE >= 47 & ST_COLCODE <= 51) ~ 'Struck Object',
+        (ST_COLCODE >= 53 & ST_COLCODE <= 57) ~ 'Non-Collision',
+        (ST_COLCODE >= 71 & ST_COLCODE <= 72) ~ 'Sideswipe',
+        (ST_COLCODE >= 73 & ST_COLCODE <= 74) ~ 'Rear End',
+        (ST_COLCODE >= 81 & ST_COLCODE <= 82) ~ 'Sideswipe',
+        (ST_COLCODE >= 83 & ST_COLCODE <= 84) ~ 'Rear End',
+        is.na(ST_COLCODE) ~ 'Unknown',
         TRUE ~ 'Other Collision'
     )))
 
+# validate 
+print_value_counts(df, 'ST_COLDESC_grouped')
+
+
+# State's interpretation of Striking (the one doing)
+df <- df %>%
+    mutate(., ST_striking = with(., case_when(
+        (ST_COLCODE >= 0 & ST_COLCODE <= 5)   ~ 'Vehicle',
+        (ST_COLCODE >= 6 & ST_COLCODE <= 8)   ~ 'Pedalcyclist',
+        (ST_COLCODE >= 10 & ST_COLCODE <= 30) ~ 'Vehicle',
+        (ST_COLCODE == 31)   ~ 'Not Stated',
+        (ST_COLCODE == 32)   ~ 'Vehicle',
+        (ST_COLCODE == 40 | ST_COLCODE == 42 | ST_COLCODE == 43)  ~ 'Railway Vehicle',
+        (ST_COLCODE == 41)   ~ 'Vehicle',
+        (ST_COLCODE >= 45 & ST_COLCODE <= 52)  ~ 'Vehicle',
+        (ST_COLCODE >= 53 & ST_COLCODE <= 57)  ~ 'Not applicable',
+        (ST_COLCODE == 60 | ST_COLCODE <= 62 | ST_COLCODE <= 64 | ST_COLCODE <= 66) ~ 'Vehicle',
+        (ST_COLCODE == 61 | ST_COLCODE <= 63 | ST_COLCODE <= 65 | ST_COLCODE <= 67) ~ 'Road or Construction Machinery',
+        (ST_COLCODE >= 71 & ST_COLCODE <= 88)  ~ 'Vehicle',
+        is.na(ST_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other'
+    )))
+
+# State's interpretation of Struck (the one struck)
+df <- df %>%
+    mutate(., ST_struck = with(., case_when(
+        (ST_COLCODE >= 0 & ST_COLCODE <= 5)   ~ 'Pedestrian',
+        (ST_COLCODE == 6)   ~ 'Moving Vehicle',
+        (ST_COLCODE == 7)   ~ 'Pedalcyclist or Pedestrian',
+        (ST_COLCODE == 8)   ~ 'Other',
+        (ST_COLCODE >= 10 & ST_COLCODE <= 30) ~ 'Vehicle',
+        (ST_COLCODE == 31)   ~ 'Not Stated',
+        (ST_COLCODE == 32)   ~ 'Vehicle',
+        (ST_COLCODE == 40)   ~ 'Vehicle',
+        (ST_COLCODE == 41)   ~ 'Railway Vehicle',
+        (ST_COLCODE >= 42 & ST_COLCODE <= 45)  ~ 'Pedestrian or Pedalcyclist',
+        (ST_COLCODE >= 48 & ST_COLCODE <= 51)  ~ 'Animal or Object',
+        (ST_COLCODE >= 52 & ST_COLCODE <= 57)  ~ 'Not applicable',
+        (ST_COLCODE >= 60 & ST_COLCODE <= 62 | ST_COLCODE <= 64 | ST_COLCODE <= 66) ~ 'Road or Construction Machiner',
+        (ST_COLCODE >= 61 & ST_COLCODE <= 63 | ST_COLCODE <= 65 | ST_COLCODE <= 67) ~ 'Vehicle',
+        (ST_COLCODE >= 71 & ST_COLCODE <= 84)  ~ 'Vehicle',
+        (ST_COLCODE >= 85 & ST_COLCODE <= 87)  ~ 'Animal or Object',
+        (ST_COLCODE == 88)   ~ 'Vehicle',
+        is.na(ST_COLCODE) ~ 'Unknown',
+        TRUE ~ 'Other'
+    )))
+
+df %>% filter(!is.na(ST_COLDESC)) %>%
+    group_by(ST_COLCODE, ST_COLDESC) %>%
+    summarise(count = n())
+
+df %>% 
+    group_by(ST_striking, ST_struck, ST_COLDESC_grouped) %>%
+    summarise(count = n())
+
+```
+
+* Shorten SEVERITYDESC values by removing ' Collision' from strings
+* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
+* Change SEVERITYCODE to 0 where NULL
+* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
+
+
+
+
+
+
+```{r}
 # shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
