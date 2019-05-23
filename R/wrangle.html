@@ -893,9 +893,9 @@ df &lt;- setnames(df,
 <div id="create-classification-columns" class="section level4">
 <h4>Create classification column(s)</h4>
 <pre class="r"><code># Using SDOT Collision Code Matrix https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf
-# Striking (the one doing)
+# striker (the one doing)
 df &lt;- df %&gt;%
-    mutate(., SDOT_striking = with(., case_when(
+    mutate(., SDOT_striker = with(., case_when(
         (SDOT_COLCODE == 1)   ~ 'Pedestrian',
         (SDOT_COLCODE == 2)   ~ 'Motor Vehicle',
         (SDOT_COLCODE == 3)   ~ 'Pedalcyclist',
@@ -907,8 +907,8 @@ df &lt;- df %&gt;%
         TRUE ~ 'Unknown / Not applicable'
         )))
 # validate 
-print_value_counts(df, 'SDOT_striking')</code></pre>
-<pre><code>$SDOT_striking
+print_value_counts(df, 'SDOT_striker')</code></pre>
+<pre><code>$SDOT_striker
 
 
 Table: this_df
@@ -960,13 +960,13 @@ Pedalcyclist                  3445    1.67
 Pedestrian                    7100    3.45
 Train                           94    0.05
 Unknown / Not applicable     17899    8.69</code></pre>
-<pre class="r"><code># validate striking and struck together
+<pre class="r"><code># validate striker and struck together
 df %&gt;%
-    group_by(SDOT_striking, SDOT_struck) %&gt;%
+    group_by(SDOT_striker, SDOT_struck) %&gt;%
     summarise(count = n())</code></pre>
 <pre><code># A tibble: 19 x 3
-# Groups:   SDOT_striking [4]
-   SDOT_striking            SDOT_struck               count
+# Groups:   SDOT_striker [4]
+   SDOT_striker             SDOT_struck               count
    &lt;chr&gt;                    &lt;chr&gt;                     &lt;int&gt;
  1 Driverless Motor Vehicle Fixed Object                109
  2 Driverless Motor Vehicle Motor Vehicle               281
@@ -987,55 +987,9 @@ df %&gt;%
 17 Pedalcyclist             Pedalcyclist                 12
 18 Pedalcyclist             Pedestrian                   89
 19 Unknown / Not applicable Unknown / Not applicable  17899</code></pre>
-<pre class="r"><code># Group common SDOTtypes (e.g., combine 8 '%Sideswipe%' types into one 'Sideswipe')
-# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+<pre class="r"><code># State's interpretation of striker (the one doing)
 df &lt;- df %&gt;%
-    mutate(., ST_COLDESC_grouped = with(., case_when(
-        (ST_COLCODE &lt;= 5) ~ 'Vehicle Hits Pedestrian',
-        (ST_COLCODE == 10) ~ 'Entering at angle',   # over 30k in this group
-        (ST_COLCODE &gt;= 11 &amp; ST_COLCODE &lt;= 12) ~ 'Sideswipe',
-        (ST_COLCODE &gt;= 13 &amp; ST_COLCODE &lt;= 14) ~ 'Rear End',
-        (ST_COLCODE &gt;= 15 &amp; ST_COLCODE &lt;= 23) ~ 'From Same Direction',
-        (ST_COLCODE &gt;= 24 &amp; ST_COLCODE &lt;= 25) ~ 'Head On',
-        (ST_COLCODE &gt;= 26 &amp; ST_COLCODE &lt;= 27) ~ 'Sideswipe',
-        (ST_COLCODE &gt;= 28 &amp; ST_COLCODE &lt;= 30) ~ 'From Opposite Direction',
-        (ST_COLCODE == 32) ~ 'One parked--one moving',   # over 40k in this group
-        (ST_COLCODE &gt;= 44 &amp; ST_COLCODE &lt;= 46) ~ 'Pedalcyclist',
-        (ST_COLCODE &gt;= 47 &amp; ST_COLCODE &lt;= 51) ~ 'Struck Object',
-        (ST_COLCODE &gt;= 53 &amp; ST_COLCODE &lt;= 57) ~ 'Non-Collision',
-        (ST_COLCODE &gt;= 71 &amp; ST_COLCODE &lt;= 72) ~ 'Sideswipe',
-        (ST_COLCODE &gt;= 73 &amp; ST_COLCODE &lt;= 74) ~ 'Rear End',
-        (ST_COLCODE &gt;= 81 &amp; ST_COLCODE &lt;= 82) ~ 'Sideswipe',
-        (ST_COLCODE &gt;= 83 &amp; ST_COLCODE &lt;= 84) ~ 'Rear End',
-        is.na(ST_COLCODE) ~ 'Unknown',
-        TRUE ~ 'Other Collision'
-    )))
-
-# validate 
-print_value_counts(df, 'ST_COLDESC_grouped')</code></pre>
-<pre><code>$ST_COLDESC_grouped
-
-
-Table: this_df
-
-fct_explicit_na(...)           n    freq
-------------------------  ------  ------
-Entering at angle          32752   15.91
-From Opposite Direction    11422    5.55
-From Same Direction        17327    8.42
-Head On                      756    0.37
-Non-Collision                167    0.08
-One parked--one moving     42502   20.64
-Other Collision             1289    0.63
-Pedalcyclist                5083    2.47
-Rear End                   32404   15.74
-Sideswipe                  17385    8.44
-Struck Object              13405    6.51
-Unknown                    24275   11.79
-Vehicle Hits Pedestrian     7110    3.45</code></pre>
-<pre class="r"><code># State's interpretation of Striking (the one doing)
-df &lt;- df %&gt;%
-    mutate(., ST_striking = with(., case_when(
+    mutate(., ST_striker = with(., case_when(
         (ST_COLCODE &gt;= 0 &amp; ST_COLCODE &lt;= 5)   ~ 'Vehicle',
         (ST_COLCODE &gt;= 6 &amp; ST_COLCODE &lt;= 8)   ~ 'Pedalcyclist',
         (ST_COLCODE &gt;= 10 &amp; ST_COLCODE &lt;= 30) ~ 'Vehicle',
@@ -1076,7 +1030,81 @@ df &lt;- df %&gt;%
         TRUE ~ 'Other'
     )))
 
-df %&gt;% filter(!is.na(ST_COLDESC)) %&gt;%
+# Group common SDOTtypes (e.g., combine 8 '%Sideswipe%' types into one 'Sideswipe')
+# Use COLLISIONTYPE categories when possible, attempting to reverse-engineer ST_COLDESC's.
+# TODO: repeat this programmatically, see if we can duplicate how COLLISIONTYPE may have been done.
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+df &lt;- df %&gt;%
+    mutate(., ST_COLDESC_collisiontype = with(., case_when(
+        (ST_COLCODE &lt;= 5) ~ 'Pedestrian',  #'Vehicle Hits Pedestrian', 
+        (ST_COLCODE &gt;= 6 &amp; ST_COLCODE &lt;= 8) ~ 'Cycles',  # Pedalcyclist hits something
+        (ST_COLCODE == 10) ~ 'Angles',     #'Entering at angle',  
+        (ST_COLCODE &gt;= 11 &amp; ST_COLCODE &lt;= 12) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 13 &amp; ST_COLCODE &lt;= 14) ~ 'Rear Ended',
+        (ST_COLCODE == 15) ~ 'Left Turn',
+        (ST_COLCODE == 16) ~ 'Right Turn',
+        (ST_COLCODE &gt;= 19 &amp; ST_COLCODE &lt;= 20) ~ 'Parked Car', #'Entering/Leaving Parking',
+        (ST_COLCODE &gt;= 21 &amp; ST_COLCODE &lt;= 22) ~ 'Other', #'Entering/Leaving Driveway',
+        (ST_COLCODE == 23) ~ 'Other',
+        (ST_COLCODE &gt;= 24 &amp; ST_COLCODE &lt;= 25) ~ 'Head On',
+        (ST_COLCODE &gt;= 26 &amp; ST_COLCODE &lt;= 27) ~ 'Sideswipe',
+        (ST_COLCODE == 28) ~ 'Left Turn',
+        (ST_COLCODE == 29) ~ 'Left Turn',                 # THIS IS A COMPROMISE (actual: 1 left, 1 right)
+        (ST_COLCODE == 30) ~ 'Head On',  #'From opposite direction - all others',
+        (ST_COLCODE == 32) ~ 'Parked Car',                #'One parked--one moving',  
+        (ST_COLCODE &gt;= 40 &amp; ST_COLCODE &lt;= 43) ~ 'Other', # Involving Railway Vehicle,
+        (ST_COLCODE &gt;= 44 &amp; ST_COLCODE &lt;= 46) ~ 'Cycles', #'Pedalcyclist',
+        (ST_COLCODE &gt;= 47 &amp; ST_COLCODE &lt;= 51) ~ 'Other',  # 'Struck Object',
+        (ST_COLCODE &gt;= 52 &amp; ST_COLCODE &lt;= 57) ~ 'Other',  # 'Non-Collision',
+        (ST_COLCODE &gt;= 71 &amp; ST_COLCODE &lt;= 72) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 73 &amp; ST_COLCODE &lt;= 74) ~ 'Rear Ended',
+        (ST_COLCODE &gt;= 81 &amp; ST_COLCODE &lt;= 82) ~ 'Sideswipe',
+        (ST_COLCODE &gt;= 83 &amp; ST_COLCODE &lt;= 84) ~ 'Rear Ended',
+        is.na(ST_COLCODE) ~ NA_character_,
+        TRUE ~ 'Other'   # as.character(.$ST_COLDESC)
+    )))
+
+
+# validate 
+print_value_counts(df, 'ST_COLDESC_collisiontype')</code></pre>
+<pre><code>$ST_COLDESC_collisiontype
+
+
+Table: this_df
+
+fct_explicit_na(...)        n    freq
+---------------------  ------  ------
+Angles                  32752   15.91
+Cycles                   5207    2.53
+Head On                  2008    0.98
+Left Turn               13108    6.37
+Other                   22952   11.15
+Parked Car              45855   22.27
+Pedestrian               7110    3.45
+Rear Ended              32404   15.74
+Right Turn               2821    1.37
+Sideswipe               17385    8.44
+(Missing)               24275   11.79</code></pre>
+<pre class="r"><code>print_value_counts(df, 'COLLISIONTYPE')</code></pre>
+<pre><code>$COLLISIONTYPE
+
+
+Table: this_df
+
+fct_explicit_na(...)        n    freq
+---------------------  ------  ------
+Angles                  32752   15.91
+Cycles                   5207    2.53
+Head On                  2008    0.98
+Left Turn               13108    6.37
+Other                   22952   11.15
+Parked Car              45855   22.27
+Pedestrian               7110    3.45
+Rear Ended              32404   15.74
+Right Turn               2821    1.37
+Sideswipe               17385    8.44
+(Missing)               24275   11.79</code></pre>
+<pre class="r"><code>df %&gt;% filter(!is.na(ST_COLDESC)) %&gt;%
     group_by(ST_COLCODE, ST_COLDESC) %&gt;%
     summarise(count = n())</code></pre>
 <pre><code># A tibble: 62 x 3
@@ -1146,36 +1174,35 @@ df %&gt;% filter(!is.na(ST_COLDESC)) %&gt;%
 61         87 Vehicle Strikes All Other Non-Domestic Animal               2
 62         88 All Other Multi Vehicle                                     1</code></pre>
 <pre class="r"><code>df %&gt;% 
-    group_by(ST_striking, ST_struck, ST_COLDESC_grouped) %&gt;%
+    group_by(ST_striker, ST_struck, ST_COLDESC_collisiontype) %&gt;%
     summarise(count = n())</code></pre>
-<pre><code># A tibble: 24 x 4
-# Groups:   ST_striking, ST_struck [16]
-   ST_striking             ST_struck             ST_COLDESC_grouped   count
+<pre><code># A tibble: 23 x 4
+# Groups:   ST_striker, ST_struck [16]
+   ST_striker              ST_struck             ST_COLDESC_collisio… count
    &lt;chr&gt;                   &lt;chr&gt;                 &lt;chr&gt;                &lt;int&gt;
- 1 Not applicable          Not applicable        Non-Collision          167
- 2 Not Stated              Not Stated            Other Collision         42
- 3 Pedalcyclist            Moving Vehicle        Other Collision         99
- 4 Pedalcyclist            Other                 Other Collision          9
- 5 Pedalcyclist            Pedalcyclist or Pede… Other Collision         16
- 6 Railway Vehicle         Pedestrian or Pedalc… Other Collision         14
- 7 Railway Vehicle         Vehicle               Other Collision         94
- 8 Road or Construction M… Vehicle               Other Collision          9
- 9 Unknown                 Unknown               Unknown              24275
-10 Vehicle                 Animal or Object      Other Collision          3
-11 Vehicle                 Animal or Object      Struck Object        13405
-12 Vehicle                 Not applicable        Other Collision        880
-13 Vehicle                 Pedestrian            Vehicle Hits Pedest…  7110
-14 Vehicle                 Pedestrian or Pedalc… Pedalcyclist          5083
-15 Vehicle                 Railway Vehicle       Other Collision         49
-16 Vehicle                 Road or Construction… Other Collision         73
-17 Vehicle                 Vehicle               Entering at angle    32752
-18 Vehicle                 Vehicle               From Opposite Direc… 11422
-19 Vehicle                 Vehicle               From Same Direction  17327
-20 Vehicle                 Vehicle               Head On                756
-21 Vehicle                 Vehicle               One parked--one mov… 42502
-22 Vehicle                 Vehicle               Other Collision          1
-23 Vehicle                 Vehicle               Rear End             32404
-24 Vehicle                 Vehicle               Sideswipe            17385</code></pre>
+ 1 Not applicable          Not applicable        Other                  167
+ 2 Not Stated              Not Stated            Other                   42
+ 3 Pedalcyclist            Moving Vehicle        Cycles                  99
+ 4 Pedalcyclist            Other                 Cycles                   9
+ 5 Pedalcyclist            Pedalcyclist or Pede… Cycles                  16
+ 6 Railway Vehicle         Pedestrian or Pedalc… Other                   14
+ 7 Railway Vehicle         Vehicle               Other                   94
+ 8 Road or Construction M… Vehicle               Other                    9
+ 9 Unknown                 Unknown               &lt;NA&gt;                 24275
+10 Vehicle                 Animal or Object      Other                13408
+11 Vehicle                 Not applicable        Other                  880
+12 Vehicle                 Pedestrian            Pedestrian            7110
+13 Vehicle                 Pedestrian or Pedalc… Cycles                5083
+14 Vehicle                 Railway Vehicle       Other                   49
+15 Vehicle                 Road or Construction… Other                   73
+16 Vehicle                 Vehicle               Angles               32752
+17 Vehicle                 Vehicle               Head On               2008
+18 Vehicle                 Vehicle               Left Turn            13108
+19 Vehicle                 Vehicle               Other                 8216
+20 Vehicle                 Vehicle               Parked Car           45855
+21 Vehicle                 Vehicle               Rear Ended           32404
+22 Vehicle                 Vehicle               Right Turn            2821
+23 Vehicle                 Vehicle               Sideswipe            17385</code></pre>
 <ul>
 <li>Shorten SEVERITYDESC values by removing ‘Collision’ from strings</li>
 <li>Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (=‘N’) marked as a feature of the collision</li>
@@ -1209,7 +1236,7 @@ df[cols] &lt;- lapply(df[cols], as.factor)
 cols &lt;- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
 # must change factors to characters before replace_na
 df[cols] &lt;- lapply(df[cols], as.character)
-# TODO: get list of vars from cols list
+# TODO: get list of vars from cols list instead of manually listing?
 df &lt;- df %&gt;%
     mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
               ~replace_na(., 'Unknown'))
@@ -1247,43 +1274,44 @@ print_date_range(df)</code></pre>
 <pre class="r"><code>glimpse(df)</code></pre>
 <pre><code>Observations: 205,876
 Variables: 32
-$ ADDRTYPE           &lt;fct&gt; Block, Block, Block, Intersection, Intersecti…
-$ SEVERITYCODE       &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, 2, 1, …
-$ SEVERITYDESC       &lt;fct&gt; Property Damage Only, Property Damage Only, P…
-$ COLLISIONTYPE      &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cycles, …
-$ PERSONCOUNT        &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, 3, 2, …
-$ PEDCOUNT           &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ PEDCYLCOUNT        &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ VEHCOUNT           &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, 3, 2, …
-$ INJURIES           &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, 1, 0, …
-$ SERIOUSINJURIES    &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ FATALITIES         &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ INCDATE            &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 2005-07-…
-$ INCDTTM            &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 10:01, …
-$ JUNCTIONTYPE       &lt;fct&gt; Mid-Block (not related to intersection), Mid-…
-$ SDOT_COLCODE       &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14, 11, 1…
-$ DISTRACTED         &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, N, N, …
-$ DUI                &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ WEATHER            &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raining, Cl…
-$ ROADCOND           &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet, Dry, …
-$ LIGHTCOND          &lt;fct&gt; Daylight, Daylight, Daylight, Daylight, Dusk,…
-$ SPEEDING           &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ year               &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 2004, 200…
-$ month              &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11, 7, 4…
-$ time               &lt;dttm&gt; 2019-05-22 15:10:00, 2019-05-22 14:00:00, 20…
-$ hour               &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, …
-$ day_part           &lt;fct&gt; Afternoon, Afternoon, Morning, Morning, Eveni…
-$ season             &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, Winter,…
-$ SDOT_striking      &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehi…
-$ SDOT_struck        &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehi…
-$ ST_COLDESC_grouped &lt;chr&gt; &quot;From Opposite Direction&quot;, &quot;Sideswipe&quot;, &quot;From…
-$ ST_striking        &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;…
-$ ST_struck          &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;…</code></pre>
+$ ADDRTYPE                 &lt;fct&gt; Block, Block, Block, Intersection, Inte…
+$ SEVERITYCODE             &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, …
+$ SEVERITYDESC             &lt;fct&gt; Property Damage Only, Property Damage O…
+$ COLLISIONTYPE            &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cy…
+$ PERSONCOUNT              &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, …
+$ PEDCOUNT                 &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ PEDCYLCOUNT              &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ VEHCOUNT                 &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, …
+$ INJURIES                 &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, …
+$ SERIOUSINJURIES          &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ FATALITIES               &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ INCDATE                  &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 20…
+$ INCDTTM                  &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 1…
+$ JUNCTIONTYPE             &lt;fct&gt; Mid-Block (not related to intersection)…
+$ SDOT_COLCODE             &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14,…
+$ DISTRACTED               &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, …
+$ DUI                      &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ WEATHER                  &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raini…
+$ ROADCOND                 &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet,…
+$ LIGHTCOND                &lt;fct&gt; Daylight, Daylight, Daylight, Daylight,…
+$ SPEEDING                 &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, …
+$ year                     &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 200…
+$ month                    &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11…
+$ time                     &lt;dttm&gt; 2019-05-23 15:10:00, 2019-05-23 14:00:…
+$ hour                     &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8…
+$ day_part                 &lt;fct&gt; Afternoon, Afternoon, Morning, Morning,…
+$ season                   &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, W…
+$ SDOT_striker             &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Moto…
+$ SDOT_struck              &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Moto…
+$ ST_striker               &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehic…
+$ ST_struck                &lt;chr&gt; &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehicle&quot;, &quot;Vehic…
+$ ST_COLDESC_collisiontype &lt;chr&gt; &quot;Left Turn&quot;, &quot;Sideswipe&quot;, &quot;Other&quot;, &quot;Ang…</code></pre>
 <pre class="r"><code># Any lingering NULLs?
 print_null_count(df)</code></pre>
-<pre><code>     null_count
-time      50292
-hour      50292</code></pre>
+<pre><code>                         null_count
+time                          50292
+hour                          50292
+ST_COLDESC_collisiontype      24274</code></pre>
 </div>
 </div>
 <div id="save-data-to-file-retaining-the-data-structure" class="section level1">
