@@ -6,8 +6,9 @@ author: "Leah Erb"
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Stylize}
 # Stylize our output
 knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
+options(tibble.print_max = 100)
+options(digits=2)
 ```
-
 
 ```{css echo=FALSE, message=FALSE, warning=FALSE, CSS}
 /* Define a margin before header elements */
@@ -32,6 +33,8 @@ library(stringr)    # 'word' function
 library(dplyr)
 library(tidyverse)
 library(knitr)
+library(grid)       # table grid
+library(gridExtra)  # table grid
 
 print_date_range <- function(this_df){
     # Prints min and max INCDATE of this_df
@@ -111,7 +114,7 @@ head(df$INCDTTM, 20)
 **Observation:** INCDATE does not contain time, INCDTTM includes dates and sometimes time.
 
 
-#### What is our data's date range, and how many records in each year?
+#### What is our date range, and how many records in each year?
 
 ```{r}
 print_date_range(df)
@@ -149,34 +152,28 @@ subset(df, is.na(SEVERITYCODE))
 ```
 **Observation:** Yes. The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
-#### There seems to be several collision type categories, what do they look like?
+#### There are several collision type columns, what do they look like?
 ```{r}
 # Print count and % of column values
 cols <- c('COLLISIONTYPE', 'SDOT_COLDESC', 'ST_COLDESC')
-temp_df_list <- get_column_values(df, cols)
-options(tibble.print_max = 100)
-options(digits=2)
-temp_df_list
+get_column_values(df, cols)
 ```
 **Observations:**
 
 * SDOT_COLDESC rowid 6 includes quotes in the text, and rowid 11 has misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)
 
-* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values
+* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values, we do not know how this data was created
 
-* SDOT_COLDESC  has general categories, plus a sub-classification by what does the striking: DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST
+* SDOT_COLDESC clearly identifies what did the striking DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST) and what got struck.
 
-* ST_COLDESC has the most categories (62 non-null), with more sub-classifications of what did the striking than SDOT_COLDESC
+* ST_COLDESC has the most factor values (62 non-null), with more details than SDOT_COLDESC
 
 
 According to the Collisions_OD.pdf:
-* COLLISIONTYPE is presumably assigned by the Seattle Police Department (TODO: Verify)
 
 * SDOT_COLDESC is given to the collision by Seattle Department of Transportation
 
 * ST_COLDESC is a code supplied by the State
-
-We may want to dig into the data more to see if there are contradictions during analysis, or if all 3 categories support each other (a hierarchy of categories?).
 
 
 #### Are SDOT_COLCODE and SDOT_COLDESC values 1:1? (Seattle Dept of Transportation)
@@ -194,6 +191,129 @@ df %>%
     summarise(count = n())
 ```
 **Observations:** Yes.
+
+
+#### Let's reconcile the 3 categories by validating: 
+
+1. all 3 categories are reconcilable and do not contradict
+2. if COLLISIONTYPE is a generalized category derived from ST_COLDESC
+3. if #2 is true, if any value compromises made when COLLISIONTYPE values were derived
+
+```{r}
+# See if we can reverse-engineer ST_COLDESC into COLLISIONTYPE.
+# TODO: repeat this programmatically using string parsing, see if we can duplicate how COLLISIONTYPE may have been done.
+# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
+df <- df %>%
+    mutate(., ST_COLDESC_collisiontype = with(., case_when(
+        (ST_COLCODE <= 5) ~ 'Pedestrian',  #'Vehicle Hits Pedestrian', + "Vehicle Strikes Pedalcyclist (#5)"
+        (ST_COLCODE >= 6 & ST_COLCODE <= 8) ~ 'Cycles',  # Pedalcyclist hits something
+        (ST_COLCODE == 10) ~ 'Angles',     #'Entering at angle',  
+        (ST_COLCODE >= 11 & ST_COLCODE <= 12) ~ 'Sideswipe',
+        (ST_COLCODE >= 13 & ST_COLCODE <= 14) ~ 'Rear Ended',
+        (ST_COLCODE == 15) ~ 'Left Turn',
+        (ST_COLCODE == 16) ~ 'Right Turn',
+        (ST_COLCODE >= 19 & ST_COLCODE <= 20) ~ 'Parked Car', #'Entering/Leaving Parking',
+        (ST_COLCODE >= 21 & ST_COLCODE <= 22) ~ 'Other', #'Entering/Leaving Driveway',
+        (ST_COLCODE == 23) ~ 'Other',
+        (ST_COLCODE >= 24 & ST_COLCODE <= 25) ~ 'Head On',
+        (ST_COLCODE >= 26 & ST_COLCODE <= 27) ~ 'Sideswipe',
+        (ST_COLCODE == 28) ~ 'Left Turn',
+        (ST_COLCODE == 29) ~ 'Left Turn',                 # THIS IS A COMPROMISE (actual: 1 left, 1 right)
+        (ST_COLCODE == 30) ~ 'Head On',  #'From opposite direction - all others',
+        (ST_COLCODE == 32) ~ 'Parked Car',                #'One parked--one moving',  
+        (ST_COLCODE >= 40 & ST_COLCODE <= 43) ~ 'Other', # Involving Railway Vehicle,
+        (ST_COLCODE >= 44 & ST_COLCODE <= 46) ~ 'Cycles', #'Pedalcyclist',
+        (ST_COLCODE >= 47 & ST_COLCODE <= 51) ~ 'Other',  # 'Struck Object',
+        (ST_COLCODE >= 52 & ST_COLCODE <= 57) ~ 'Other',  # 'Non-Collision',
+        (ST_COLCODE >= 71 & ST_COLCODE <= 72) ~ 'Sideswipe',
+        (ST_COLCODE >= 73 & ST_COLCODE <= 74) ~ 'Rear Ended',
+        (ST_COLCODE >= 81 & ST_COLCODE <= 82) ~ 'Sideswipe',
+        (ST_COLCODE >= 83 & ST_COLCODE <= 84) ~ 'Rear Ended',
+        is.na(ST_COLCODE) ~ 'Unknown', #NA_character_,
+        TRUE ~ 'Other'   # as.character(.$ST_COLDESC)
+    )))
+# validate 
+print_value_counts(df, 'ST_COLDESC_collisiontype')
+
+print_value_counts(df, 'COLLISIONTYPE')
+```
+
+```{r}
+df$ST_collisiontype <- tolower(df$ST_COLDESC)
+
+df <- df %>%
+    mutate(., ST_collisiontype = with(., case_when(
+        (str_detect(ST_collisiontype, 'pedestrian')) ~ 'Pedestrian',
+        #(str_detect(ST_collisiontype, 'angle')) ~ 'Angles',
+        #(str_detect(ST_collisiontype, 'pedalcyclist')) ~ 'Cycles',
+        #(str_detect(ST_collisiontype, 'left')) ~ 'Left Turn',
+        #(str_detect(ST_collisiontype, 'right')) ~ 'Right Turn',
+         TRUE ~ 'Other'
+    )))
+
+print_value_counts(df, 'ST_collisiontype')
+```
+
+It appears that COLLISIONTYPE may have been created as a simplified version of ST_COLDESC, but if that is so then the COLLISIONTYPE create function is wrong, or the State Collision Code Dictionary is wrong. The ST_COLCODE/ST_COLDESC combinations in the database does not match the "State Collision Code Directory" for code=5:
+
+![State Collision Code Directory - first 5 rows](../docs/ST_COLCODE_error.png)
+
+
+```{r}
+d <- df %>%
+    filter(ST_COLCODE <= 5) %>%
+    distinct(ST_COLCODE, ST_COLDESC) %>%
+    arrange(ST_COLCODE) #%>% rename(Code = ST_COLCODE, Description = ST_COLDESC)
+```
+
+
+```{r}
+# works
+hj <- matrix(c(.5, 0), ncol=2, nrow=nrow(d), byrow=TRUE)
+x <- matrix(c(.5, 0), ncol=2, nrow=nrow(d), byrow=TRUE)
+
+mytheme <- ttheme_default(core = list(fg_params = 
+                                          list(hjust=as.vector(hj), 
+                                               x=as.vector(x))), 
+                          colhead = list(fg_params = list(fontface="bold")))
+
+tg <- tableGrob(d, theme = mytheme, rows=NULL)  # no rows index
+grid.newpage()
+for (i in c(10,16)) {
+    tg$grobs[[i]] <- editGrob(tg$grobs[[i]],
+                              gp=gpar(col="red",
+                                      fontsize = '14'))
+}
+grid.draw(tg)
+```
+
+```{r}
+library(grid)
+library(gridExtra)
+library(gtable)
+
+title <- textGrob("Collisions Dataset",gp=gpar(fontsize=16))
+padding <- unit(5,"mm")
+
+table <- gtable_add_rows(
+     tg, 
+     heights = grobHeight(title) + padding,
+     pos = 0)
+table <- gtable_add_grob(
+    table, 
+    title, 
+    1, 1, 1, ncol(table))
+
+grid.newpage()
+grid.draw(table)
+```
+**Observations:**
+There is inconsistency between the 3 collision category columns when it comes to reporting Pedestrian and 'Pedcyclist' involvement. For example, some rows have:
+  + ST_COLDESC = 'Vehicle Strikes Pedalcyclist
+  + COLLISIONTYPE = 'Pedestrian'
+  + SDOT_COLDESC = '
+
+
 
 
 #### What do binary-esque columns look like?
@@ -309,7 +429,49 @@ df <- setnames(df,
 ```
 
 
-#### Create classification column(s)
+
+* Shorten SEVERITYDESC values by removing ' Collision' from strings
+* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
+* Change SEVERITYCODE to 0 where NULL
+* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
+
+```{r}
+# shorten SEVERITYDESC values by removing ' Collision' from strings
+df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
+
+# binary-ize DUI (Y/N) 
+df <- df %>%
+    mutate(., DUI = with(., case_when(
+        DUI == '0' ~ 'N',
+        DUI == 'N' ~ 'N',
+        DUI == '1' ~ 'Y',
+        DUI == 'Y' ~ 'Y',
+        is.na(DUI) ~ 'N'
+    )))
+
+# binary columns: default NULL to 'N'
+cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
+# must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+df <- df %>%
+    mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
+              ~replace_na(., 'N'))
+df[cols] <- lapply(df[cols], as.factor)
+
+
+# factor columns: default NULL to 'Unknown'
+cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
+# must change factors to characters before replace_na
+df[cols] <- lapply(df[cols], as.character)
+# TODO: get list of vars from cols list instead of manually listing?
+df <- df %>%
+    mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
+              ~replace_na(., 'Unknown'))
+
+df[cols] <- lapply(df[cols], as.factor)
+```
+
+#### Create SDOT_striker and SDOT_struck(ee) columns
 ```{r}
 # Using SDOT Collision Code Matrix https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf
 # striker (the one doing)
@@ -403,48 +565,9 @@ df <- df %>%
         is.na(ST_COLCODE) ~ 'Unknown',
         TRUE ~ 'Other'
     )))
+```
 
-# Group common SDOTtypes (e.g., combine 8 '%Sideswipe%' types into one 'Sideswipe')
-# Use COLLISIONTYPE categories when possible, attempting to reverse-engineer ST_COLDESC's.
-# TODO: repeat this programmatically, see if we can duplicate how COLLISIONTYPE may have been done.
-# (Ref: State Collision Code Directory https://www.seattle.gov/Documents/Departments/SDOT/GIS/Collisions_OD.pdf)
-df <- df %>%
-    mutate(., ST_COLDESC_collisiontype = with(., case_when(
-        (ST_COLCODE <= 5) ~ 'Pedestrian',  #'Vehicle Hits Pedestrian', 
-        (ST_COLCODE >= 6 & ST_COLCODE <= 8) ~ 'Cycles',  # Pedalcyclist hits something
-        (ST_COLCODE == 10) ~ 'Angles',     #'Entering at angle',  
-        (ST_COLCODE >= 11 & ST_COLCODE <= 12) ~ 'Sideswipe',
-        (ST_COLCODE >= 13 & ST_COLCODE <= 14) ~ 'Rear Ended',
-        (ST_COLCODE == 15) ~ 'Left Turn',
-        (ST_COLCODE == 16) ~ 'Right Turn',
-        (ST_COLCODE >= 19 & ST_COLCODE <= 20) ~ 'Parked Car', #'Entering/Leaving Parking',
-        (ST_COLCODE >= 21 & ST_COLCODE <= 22) ~ 'Other', #'Entering/Leaving Driveway',
-        (ST_COLCODE == 23) ~ 'Other',
-        (ST_COLCODE >= 24 & ST_COLCODE <= 25) ~ 'Head On',
-        (ST_COLCODE >= 26 & ST_COLCODE <= 27) ~ 'Sideswipe',
-        (ST_COLCODE == 28) ~ 'Left Turn',
-        (ST_COLCODE == 29) ~ 'Left Turn',                 # THIS IS A COMPROMISE (actual: 1 left, 1 right)
-        (ST_COLCODE == 30) ~ 'Head On',  #'From opposite direction - all others',
-        (ST_COLCODE == 32) ~ 'Parked Car',                #'One parked--one moving',  
-        (ST_COLCODE >= 40 & ST_COLCODE <= 43) ~ 'Other', # Involving Railway Vehicle,
-        (ST_COLCODE >= 44 & ST_COLCODE <= 46) ~ 'Cycles', #'Pedalcyclist',
-        (ST_COLCODE >= 47 & ST_COLCODE <= 51) ~ 'Other',  # 'Struck Object',
-        (ST_COLCODE >= 52 & ST_COLCODE <= 57) ~ 'Other',  # 'Non-Collision',
-        (ST_COLCODE >= 71 & ST_COLCODE <= 72) ~ 'Sideswipe',
-        (ST_COLCODE >= 73 & ST_COLCODE <= 74) ~ 'Rear Ended',
-        (ST_COLCODE >= 81 & ST_COLCODE <= 82) ~ 'Sideswipe',
-        (ST_COLCODE >= 83 & ST_COLCODE <= 84) ~ 'Rear Ended',
-        is.na(ST_COLCODE) ~ 'Unknown', #NA_character_,
-        TRUE ~ 'Other'   # as.character(.$ST_COLDESC)
-    )))
-
-
-# validate 
-print_value_counts(df, 'ST_COLDESC_collisiontype')
-
-print_value_counts(df, 'COLLISIONTYPE')
-
-
+```{r}
 df %>% filter(!is.na(ST_COLDESC)) %>%
     group_by(ST_COLCODE, ST_COLDESC) %>%
     summarise(count = n())
@@ -454,48 +577,6 @@ df %>%
     summarise(count = n())
 
 ```
-
-* Shorten SEVERITYDESC values by removing ' Collision' from strings
-* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
-* Change SEVERITYCODE to 0 where NULL
-* Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
-
-```{r}
-# shorten SEVERITYDESC values by removing ' Collision' from strings
-df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
-
-# binary-ize DUI (Y/N) 
-df <- df %>%
-    mutate(., DUI = with(., case_when(
-        DUI == '0' ~ 'N',
-        DUI == 'N' ~ 'N',
-        DUI == '1' ~ 'Y',
-        DUI == 'Y' ~ 'Y',
-        is.na(DUI) ~ 'N'
-    )))
-
-# binary columns: default NULL to 'N'
-cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
-# must change factors to characters before replace_na
-df[cols] <- lapply(df[cols], as.character)
-df <- df %>%
-    mutate_at(vars(DUI, DISTRACTED, SPEEDING, HITPARKEDCAR),
-              ~replace_na(., 'N'))
-df[cols] <- lapply(df[cols], as.factor)
-
-
-# factor columns: default NULL to 'Unknown'
-cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
-# must change factors to characters before replace_na
-df[cols] <- lapply(df[cols], as.character)
-# TODO: get list of vars from cols list instead of manually listing?
-df <- df %>%
-    mutate_at(vars(WEATHER, ROADCOND, LIGHTCOND, COLLISIONTYPE, JUNCTIONTYPE, ADDRTYPE),
-              ~replace_na(., 'Unknown'))
-
-df[cols] <- lapply(df[cols], as.factor)
-```
-
 
 ### Fix and trim
 * Delete the first record by INCDATE (it appears to have been a test insert)
