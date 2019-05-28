@@ -12,7 +12,7 @@ The motivation behind this project is two-fold:
 The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), starting in 2004 and updated regularly.
 
 ## Project Status
-This project a work in progress. The R method is actively being refined and will act as the standard against which the Python, SQL and Tableau modules will be developed.
+This project a work in progress. The R method is actively being refined and will act as the standard against which the Python, SQL, Excel, and Tableau modules will be developed.
 
 ## How to Contribute
 
