@@ -134,7 +134,7 @@ print_null_count(df)
 
 #### Several columns have only 1 NULL, are they all from the same record?
 ```{r}
-cols <-  c('SEVERITYCODE', 'SDOT_COLCODE', 'SDOT_COLDESC')
+cols <-  c('SEVERITYCODE', 'SDOT_COLDESC', 'SDOT_COLCODE')
 subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols)
 ```
 **Observation:** No.
@@ -160,11 +160,11 @@ get_column_values(df, cols)
 ```
 **Observations:**
 
-* SDOT_COLDESC rowid 6 includes quotes in the text, and rowid 11 has misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)
+* SDOT_COLDESC has a misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)
 
-* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values, we do not know how this data was created
+* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values, we do not know how this data was created. Can we reverse-engineer SDOT_COLCODE or ST_COLCODE to re-create COLLISIONTYPE?
 
-* SDOT_COLDESC clearly identifies what did the striking DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST) and what got struck.
+* SDOT_COLDESC clearly identifies what did the striking (DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST) and what got struck.
 
 * ST_COLDESC has the most factor values (62 non-null), with more details than SDOT_COLDESC
 
@@ -195,10 +195,11 @@ df %>%
 
 #### Let's reconcile the 3 categories by validating: 
 
-1. all 3 categories are reconcilable and do not contradict
-2. if COLLISIONTYPE is a generalized category derived from ST_COLDESC
-3. if #2 is true, if any value compromises made when COLLISIONTYPE values were derived
+1. if COLLISIONTYPE can be reverse-engineered from ST_COLDESC (suggesting COLLISIONTYPE is a generated column, not a collision report feature) 
+2. if #1 is true, were there any value compromises made to create COLLISIONTYPE 
+3. SDOT_COLDESC and ST_COLDESC do not contradict
 
+**1. Can we reverse-engineer ST_COLDESC to create COLLISIONTYPE, and are any compromises made to do so?**
 ```{r}
 # See if we can reverse-engineer ST_COLDESC into COLLISIONTYPE.
 # TODO: repeat this programmatically using string parsing, see if we can duplicate how COLLISIONTYPE may have been done.
@@ -237,7 +238,9 @@ print_value_counts(df, 'ST_COLDESC_collisiontype')
 
 print_value_counts(df, 'COLLISIONTYPE')
 ```
+**Observations:** Yes, we can successfully create COLLISIONTYPE using ST_COLCODE. # TODO include compromises to data if any.
 
+**Can we do the same reverse-engineering using ST_COLDESC and parsing string values (e.g. look for 'Pedestrian')?
 ```{r}
 df$ST_collisiontype <- tolower(df$ST_COLDESC)
 
@@ -253,8 +256,9 @@ df <- df %>%
 
 print_value_counts(df, 'ST_collisiontype')
 ```
+**Observations:** No.
 
-It appears that COLLISIONTYPE may have been created as a simplified version of ST_COLDESC, but if that is so then the COLLISIONTYPE create function is wrong, or the State Collision Code Dictionary is wrong. The ST_COLCODE/ST_COLDESC combinations in the database does not match the "State Collision Code Directory" for code=5:
+I did not complete the ST_COLDESC string parse method to create COLLISIONTYPE because it appears there is an error in at least one ST_COLDESC: the ST_COLCODE/ST_COLDESC combinations in the dataset does not match the printable "State Collision Code Directory" for **Code** = 5. The printable version has 5 = '... Pedestrian ...', while the dataset has 5 = '... Pedalcyclist ...'. A subtle difference, but an error nonetheless.
 
 ![State Collision Code Directory - first 5 rows](../docs/ST_COLCODE_error.png)
 
@@ -286,7 +290,7 @@ for (i in c(10,16)) {
 }
 grid.draw(tg)
 ```
-
+**Add a title to the graph.** TODO: find a simpler way to plot the table with a title.
 ```{r}
 library(grid)
 library(gridExtra)
@@ -307,13 +311,24 @@ table <- gtable_add_grob(
 grid.newpage()
 grid.draw(table)
 ```
-**Observations:**
-There is inconsistency between the 3 collision category columns when it comes to reporting Pedestrian and 'Pedcyclist' involvement. For example, some rows have:
-  + ST_COLDESC = 'Vehicle Strikes Pedalcyclist
-  + COLLISIONTYPE = 'Pedestrian'
-  + SDOT_COLDESC = '
+**3. Do SDOT_COLDESC and ST_COLDESC values contradict?
+```{r}
+# Do a litmus test on 'pedalcyclist' contradictions
+df %>% filter(!is.na(ST_COLDESC)) %>%
+    filter((str_detect(tolower(ST_COLDESC), 'pedalcyclist') & !str_detect(tolower(SDOT_COLDESC), 'pedalcyclist')) |
+               (!str_detect(tolower(ST_COLDESC), 'pedalcyclist') & str_detect(tolower(SDOT_COLDESC), 'pedalcyclist'))) %>%
+    group_by(SDOT_COLDESC, ST_COLDESC, PEDCYLCOUNT, PEDCOUNT) %>%
+    summarize(n = n())
 
+df %>% filter(!is.na(ST_COLDESC)) %>%
+    filter((str_detect(tolower(ST_COLDESC), 'pedalcyclist') & !str_detect(tolower(SDOT_COLDESC), 'pedalcyclist')) |
+               (!str_detect(tolower(ST_COLDESC), 'pedalcyclist') & str_detect(tolower(SDOT_COLDESC), 'pedalcyclist'))) %>%
+    summarize(n = n())
+```
+**Observations:** Contradictions exist
+I did a litmus test to see if the word 'pedalcyclist' shows up in both the SDOT and State's collision descriptions. There are well over 500 contradictions on 'pedalcyclist' alone. For example, SDOT_COLDESC = 'MOTOR VEHICLE STRUCK MOTOR VEHICLE...' and ST_COLDESC = 'Vehicle - Pedalcyclist' (117 records).
 
+Also, there are some records where SDOT claims '...STRUCK PEDALCYCLIST' yet PEDCYCLCOUNT = 0 and PEDCOUNT = 0. 
 
 
 #### What do binary-esque columns look like?
@@ -333,45 +348,45 @@ as.data.frame(lapply(df[,cols],
                      } 
 ))
 ```
+**Observations:**
+* Not all collisions involve a vehicle (88% of VEHCOUNT > 0 )
+* 28% collisions involve INJURIES
+* Fewer than 5% have (non-zero) PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES
+
 
 ###\ Assessment Observations
 **May require cleaning:**
 
 * INCDATE is a factor with format 'YYYY-MM-DDT00:00:00.000Z'
 * INCDTTM is a factor with varying formats of 'M/DD/YY HH:MM' and 'M/DD/YY'
-* Minimum INCDATE = '2003-10-06T00:00:00.000Z'
-* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value. 
+* Minimum INCDATE = '2003-10-06T00:00:00.000Z', the only record in 2003
+* SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value
 * The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
-* The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert.
+* The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert
 * SDOT_COLCODE contains categorical data but is datatype Integer.
+* Inconsistencies exist between SDOT_COLDESC and ST_COLDESC, and other 'counts of things' columns (e.g. PEDCOUNT).
 * Binary fields: 
-* INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
-* SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
-* HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
-* UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
+  + INATTENTIONIND appears to default to NULL unless specifically set to 'Y'. ( >86% NULL)
+  + SPEEDING       appears to default to NULL unless specifically set to 'Y'. (>95% NULL)
+  + HITPARKEDCAR has no NULLs, all values are 'N' or 'Y'. (>95% 'N')
+  + UNDERINFL is all over the map, with 0, 1, N, Y and NULL values. (> 95% 0, N or NULL)
 * Some key columns may not be of use in our analysis since we not, at this time,
 joining with other tables: -OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, 
 -EXCEPTRSNDESC, -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY
 
 
-**Of interest:**
-*  more than 88% collisions have non-zero values for PERSONCOUNT and VEHCOUNT
-*  fewer than 28% collisions have non-zero values INJURIES
-*  fewer than 5% of PEDCOUNT, PEDCYLCOUNT, SERIOUSINJURIES and FATALITIES are non-zero values
-
-
 #\
 Clean 
 
-### Create and clean Date/time columns
-* Change INCDATE datatype to Date
+### Date and Time 
+* Change INCDATE to datatype Date
 * Create date/time columns:
-+ year (YYYY)  <- factor
-+ month (1-12) <- factor
-+ time (HH:MM) <- time
-+ hour (of day) <- factor
-+ day_part (Morning, Afternoon, Evening, Night) <- factor
-+ season (Spring, Summer, Fall, Winter) <- factor
+  + year (YYYY)  <- factor
+  + month (1-12) <- factor
+  + time (HH:MM) <- time
+  + hour (of day) <- factor
+  + day_part (Morning, Afternoon, Evening, Night) <- factor
+  + season (Spring, Summer, Fall, Winter) <- factor
 
 ```{r Clean_data}
 df$INCDATE <- as.Date(df$INCDATE)
@@ -405,11 +420,8 @@ df$season <- factor(df$season)
 ```
 
 
-### Simplify, create groups, and standardize
-
-#### Rename columns
+### Rename 
 * UNDERINFL -> DUI
-
 * INATTENTIONID -> DISTRACTED
 ```{r}
 ### TODO: move cleaning step transparency to project documentation
@@ -421,7 +433,6 @@ df$season <- factor(df$season)
 ### https://www.wsdot.wa.gov/mapsdata/crash/pdf/2015_Annual_Collision_Summary.pdf
 ### https://www.seattle.gov/Documents/Departments/SDOT/About/DocumentLibrary/Reports/2017_Traffic_Report.pdf
 
-# rename columns
 df <- setnames(df,
                old=c('UNDERINFL', 'INATTENTIONIND'),
                new=c('DUI'      , 'DISTRACTED'),
@@ -429,17 +440,15 @@ df <- setnames(df,
 ```
 
 
-
-* Shorten SEVERITYDESC values by removing ' Collision' from strings
-* Clean binary variables so all values are either Y or N. Change NULL to N by default, meaning that the attribute was NOT (='N') marked as a feature of the collision
-* Change SEVERITYCODE to 0 where NULL
+### Shorten long strings; binary-ize Y/N columns; change NULL to Unknown
+* Shorten SEVERITYDESC values by removing (redundant) ' Collision' from strings
+* Change binary variables to be only Y or N. NULL -> N 
+* For the record where SEVERITYCODE = NULL, change it to 0 #TODO: do not assume all future NULL SEVERITYCODEs are '0' ... set it = to calculation of INJURIES, SERIOUSINJURIES and FATALITIES)
 * Change factors to 'Unknown' where NULL (WEATHER, ROADCOND, LIGHTCOND)
 
 ```{r}
-# shorten SEVERITYDESC values by removing ' Collision' from strings
 df$SEVERITYDESC <- as.factor(gsub('* Collision', '\\1', df$SEVERITYDESC))
 
-# binary-ize DUI (Y/N) 
 df <- df %>%
     mutate(., DUI = with(., case_when(
         DUI == '0' ~ 'N',
@@ -448,8 +457,6 @@ df <- df %>%
         DUI == 'Y' ~ 'Y',
         is.na(DUI) ~ 'N'
     )))
-
-# binary columns: default NULL to 'N'
 cols <- c('DUI','DISTRACTED','SPEEDING','HITPARKEDCAR')
 # must change factors to characters before replace_na
 df[cols] <- lapply(df[cols], as.character)
@@ -458,8 +465,6 @@ df <- df %>%
               ~replace_na(., 'N'))
 df[cols] <- lapply(df[cols], as.factor)
 
-
-# factor columns: default NULL to 'Unknown'
 cols <- c('WEATHER','ROADCOND','LIGHTCOND', 'COLLISIONTYPE', 'JUNCTIONTYPE', 'ADDRTYPE')
 # must change factors to characters before replace_na
 df[cols] <- lapply(df[cols], as.character)
@@ -471,7 +476,10 @@ df <- df %>%
 df[cols] <- lapply(df[cols], as.factor)
 ```
 
-#### Create SDOT_striker and SDOT_struck(ee) columns
+#### Create SDOT_striker and SDOT_struck(ee) 
+Even though there are some inconsistencies between SDOT_COLDESC and other 'counts of things' columns (e.g. PEDCOUNT), the both the SDOT_COLDESC and the 'SDOT Collision Code Matrix' (https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf) provide a clear indication of what the SDOT records as What did the striking ('striker') and What got struck ('struck'). 
+
+It is possible to parse the ST_COLDESC to attempt to do the same determination of striker and strukee, but because there are inconsistencies in the two classifications (ST vs SDOT), I will only extract striker/struck from the SDOT records.  #TODO reword these two paragraphs
 ```{r}
 # Using SDOT Collision Code Matrix https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf
 # striker (the one doing)
@@ -499,7 +507,6 @@ df <- df %>%
         (SDOT_COLCODE >= 7 & SDOT_COLCODE <= 8)   ~ 'Pedestrian', 
         (SDOT_COLCODE >= 10 & SDOT_COLCODE <= 16) ~ 'Motor Vehicle',
         (SDOT_COLCODE >= 17 & SDOT_COLCODE <= 23) ~ 'Pedalcyclist',
-        (SDOT_COLCODE >= 17 & SDOT_COLCODE <= 23) ~ 'Pedalcyclist',
         (SDOT_COLCODE == 24 | SDOT_COLCODE == 44 | SDOT_COLCODE == 64) ~ 'Pedestrian',
         (SDOT_COLCODE == 25 | SDOT_COLCODE == 45 | SDOT_COLCODE == 65) ~ 'Train',
         (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object in Roadway',
@@ -521,62 +528,9 @@ print_value_counts(df, 'SDOT_struck')
 df %>%
     group_by(SDOT_striker, SDOT_struck) %>%
     summarise(count = n())
-
-
-# State's interpretation of striker (the one doing)
-df <- df %>%
-    mutate(., ST_striker = with(., case_when(
-        (ST_COLCODE >= 0 & ST_COLCODE <= 5)   ~ 'Vehicle',
-        (ST_COLCODE >= 6 & ST_COLCODE <= 8)   ~ 'Pedalcyclist',
-        (ST_COLCODE >= 10 & ST_COLCODE <= 30) ~ 'Vehicle',
-        (ST_COLCODE == 31)   ~ 'Not Stated',
-        (ST_COLCODE == 32)   ~ 'Vehicle',
-        (ST_COLCODE == 40 | ST_COLCODE == 42 | ST_COLCODE == 43)  ~ 'Railway Vehicle',
-        (ST_COLCODE == 41)   ~ 'Vehicle',
-        (ST_COLCODE >= 45 & ST_COLCODE <= 52)  ~ 'Vehicle',
-        (ST_COLCODE >= 53 & ST_COLCODE <= 57)  ~ 'Not applicable',
-        (ST_COLCODE == 60 | ST_COLCODE <= 62 | ST_COLCODE <= 64 | ST_COLCODE <= 66) ~ 'Vehicle',
-        (ST_COLCODE == 61 | ST_COLCODE <= 63 | ST_COLCODE <= 65 | ST_COLCODE <= 67) ~ 'Road or Construction Machinery',
-        (ST_COLCODE >= 71 & ST_COLCODE <= 88)  ~ 'Vehicle',
-        is.na(ST_COLCODE) ~ 'Unknown',
-        TRUE ~ 'Other'
-    )))
-
-# State's interpretation of Struck (the one struck)
-df <- df %>%
-    mutate(., ST_struck = with(., case_when(
-        (ST_COLCODE >= 0 & ST_COLCODE <= 5)   ~ 'Pedestrian',
-        (ST_COLCODE == 6)   ~ 'Moving Vehicle',
-        (ST_COLCODE == 7)   ~ 'Pedalcyclist or Pedestrian',
-        (ST_COLCODE == 8)   ~ 'Other',
-        (ST_COLCODE >= 10 & ST_COLCODE <= 30) ~ 'Vehicle',
-        (ST_COLCODE == 31)   ~ 'Not Stated',
-        (ST_COLCODE == 32)   ~ 'Vehicle',
-        (ST_COLCODE == 40)   ~ 'Vehicle',
-        (ST_COLCODE == 41)   ~ 'Railway Vehicle',
-        (ST_COLCODE >= 42 & ST_COLCODE <= 45)  ~ 'Pedestrian or Pedalcyclist',
-        (ST_COLCODE >= 48 & ST_COLCODE <= 51)  ~ 'Animal or Object',
-        (ST_COLCODE >= 52 & ST_COLCODE <= 57)  ~ 'Not applicable',
-        (ST_COLCODE >= 60 & ST_COLCODE <= 62 | ST_COLCODE <= 64 | ST_COLCODE <= 66) ~ 'Road or Construction Machiner',
-        (ST_COLCODE >= 61 & ST_COLCODE <= 63 | ST_COLCODE <= 65 | ST_COLCODE <= 67) ~ 'Vehicle',
-        (ST_COLCODE >= 71 & ST_COLCODE <= 84)  ~ 'Vehicle',
-        (ST_COLCODE >= 85 & ST_COLCODE <= 87)  ~ 'Animal or Object',
-        (ST_COLCODE == 88)   ~ 'Vehicle',
-        is.na(ST_COLCODE) ~ 'Unknown',
-        TRUE ~ 'Other'
-    )))
 ```
 
-```{r}
-df %>% filter(!is.na(ST_COLDESC)) %>%
-    group_by(ST_COLCODE, ST_COLDESC) %>%
-    summarise(count = n())
 
-df %>% 
-    group_by(ST_striker, ST_struck, ST_COLDESC_collisiontype) %>%
-    summarise(count = n())
-
-```
 
 ### Fix and trim
 * Delete the first record by INCDATE (it appears to have been a test insert)
@@ -593,7 +547,7 @@ df$SEVERITYCODE[is.na(df$SEVERITYCODE)] <- 0
 df <- df %>%
     select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
            -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
-           -PEDROWNOTGRNT, -LOCATION, -HITPARKEDCAR)
+           -PEDROWNOTGRNT, -LOCATION, -ST_COLDESC_collisiontype, -ST_collisiontype)
 
 # Verify
 print_date_range(df)
