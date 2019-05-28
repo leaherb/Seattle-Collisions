@@ -1,6 +1,6 @@
 # Seattle-Collisions
 
-This project uses Seattle Collisions data* to compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, and Tableau.
+This project uses Seattle Collisions data* to compare 4 data analyst methods of cleaning, exploring and reporting data using Python, R, SQL, Excel, and Tableau.
 
 The motivation behind this project is two-fold:
 1. practice wrangling, exploring and storytelling with data
