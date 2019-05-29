@@ -44,7 +44,7 @@ mylayer_count_above <- geom_text(stat='count', aes(label = ..count..), vjust = -
 
 ```{r Load_data}
 # Load data
-datafile = 'collisions_clean.rda'
+datafile = '../data/collisions_clean.rda'
 load(file = datafile)
 
 # Create df_trim_yrs to contain only complete year's worth of data
@@ -67,7 +67,7 @@ ggplot(data = df_full_yrs %>% count(year), aes(x = year, y = n)) +
     scale_y_continuous(labels = scales::comma) 
 ```
 
-#### Observations
+**Observations: **
 The distribution of collision frequency by year appears bimodal, peaking at **2005** and, to a lesser extent, **2015**, with a low in between at **2010** and again in **2018**. This plot hints at a possible 5-year pattern.
 
 I had expected to see a steady increase in Seattle collisions, mirroring population growth. Perhaps I'm wrong about the steady increase in population, or that the number of **reported** collisions have a strong correlation with the population in the first place. #TODO: import population data and compare rate changes with collision rates by year.
@@ -85,18 +85,19 @@ ggplot(data = df %>%
     scale_y_continuous(labels = scales::comma) 
 ```
 
+**Observations: **
 It appears that collision counts tend to rise during commute hours, starting at the lowest point around 4am, reaching a peak at 5pm. 
 
 TODO: Chart by hour by day of week (or weekday vs weekend)
 
 ###\
-3. What are the COLLISION types, according to the **SPD**?
+3. What are the COLLISION types?
 
 > Our dataset includes 2 Collision type (category) variables: 
 >
-> 1.  COLLISIONTYPE reported by SPD (Seattle Police Department)
+> 1.  COLLISIONTYPE (a derivation of the State's collision category)
 >
-> 2.  SDOTtype recorded by SDOT (Seattle Department of Transportation)
+> 2.  SDOT_striking recorded by SDOT (Seattle Department of Transportation)
 
 
 ```{r warning=FALSE, message=FALSE, Univariate_Plots}
@@ -106,70 +107,86 @@ ggplot(data = df,
     geom_bar(width = .85)   +
     mytheme_minimal +
     mylayer_count_above +
-    labs(title = 'SPD Collision Types',
+    labs(title = 'State Collision Types',
          x = '', 
          y = '') +
     coord_flip()  
 ```
+**Observations: ***
+The State collision types seem to be a mix of what is hit in the collision and how they're hit. 
 
 ### \
-4. What are the collision types as recorded by **SDOT**?
+4. What is striking what?
 
 ```{r  warning=FALSE, message=FALSE}
 # TODO: print % instead of totals, no x-axis / ticks
+df$SDOT_strikes <- paste(df$SDOT_striker, ' STRUCK ', df$SDOT_struck)
+
+df <- df %>%
+    mutate(., SDOT_striking = with(., case_when(
+        (SDOT_striker == 'Unknown / NA' & SDOT_struck == 'Unknown / NA') ~ 'Unknown',
+        (SDOT_struck == 'Non Collision') ~ paste(SDOT_striker, '- Non Collision'),
+        TRUE ~ paste(SDOT_striker, ' STRUCK ', SDOT_struck)
+    )))
 
 ggplot(data = df,
-       aes(x = reorder(SDOTtype, SDOTtype, function(x) length(x) * 1))) +
-    geom_bar(width = .85)   +
+       aes(x = reorder(SDOT_striking, SDOT_striking, function(x) length(x) * 1))) +
+    geom_bar()   +
     mytheme_minimal +
-    mylayer_count_above +
-    labs(title = ' SDOT Collision Types',
+    geom_text(stat='count', aes(label = ..count..), vjust = .45) +
+    labs(title = ' SDOT Strikings',
+         x = '', 
+         y = '') +
+    coord_flip()
+
+ggplot(data = df,
+       aes(x = reorder(SDOT_struck, SDOT_struck, function(x) length(x) * 1))) +
+    geom_bar()   +
+    mytheme_minimal +
+    geom_text(stat='count', aes(label = ..count..), vjust = .45) +
+    labs(title = ' SDOT What is getting hit',
          x = '', 
          y = '') +
     coord_flip()
 ```
+**Observations: **
+It makes sense that most vehicle collisions involve a vehicle getting hit. 
 
-\
-**SPD**  and **SDOT** collision categories and their distributions are not the same. Which type I choose to include in this study could have an impact on our analysis. For example, if we are analyzing collisions involving Pedestrians, SPD reports only 1,770 'Pedestrian', while SDOT reports 'Hits Pedestrian' 17,846 times. That's a nearly 10x difference. Also, SDOT's 'Rear End' count is almost twice as many as SPD's.
+More than twice as many pedestrians get hit than pedacyclists. 
 
-It is possible that SPD has reason to categorize collisions differently than SDOT. The reasons are outside the scope of this project. Nonetheless, it would be interesting to look into how Collision types are recorded, and if it would make a differences in our analysis.
-
-In this report, except where otherwise noted, will be using **SDOT**'s Collision categories.
 
 ### \
 5. What are the SEVERITY categories?
 
 ```{r warning=FALSE, message=FALSE}
-# TODO: remove decimal in %
+# TODO: remove decimal in %, add title
 severity_level_order <- c('Unknown','Property Damage Only', 'Injury', 'Serious Injury', 'Fatality' )
 
 ggplot(df, 
        aes(x = factor(SEVERITYDESC, level = severity_level_order))) +
     geom_bar(aes(y = (..count..)/sum(..count..))) +
     scale_y_continuous(labels = percent_format()) +
-    labs(x = 'SEVERITYDESC', y = 'Percent')+
+    labs(x = 'SEVERITYDESC', y = 'Percent') +
     coord_flip()
 
 ```
 
 Observations:
 
-* This plot orders the Severity bins in order of worsening severity.
-
 * The frequency of collisions by Severity is right skewed (towards higher severity).
 
 * Over 60% of collisions result in Property Damage Only (no injuries or deaths). 
 
-The Severity factor alone does no quantify the damage done by each collision. 
+The Severity factor alone does no quantify the amount of damage done by each collision. 
 
 
 ### \
-Geographical, environmental and time factors
+6. Geographical, environmental and time factors
 
 Let's get a rough idea of how counts are distributed amongst these types of categorical factors. Don't worry about not being able to read the x-axis labels yet :-> .
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
-# TODO: flip so labels are readable
+# TODO: flip so labels are readable; sep add/junction type, weather/light/road, and season/day_part
 dfshort <- subset(df, select = 
                       c(ADDRTYPE, JUNCTIONTYPE, WEATHER, LIGHTCOND, ROADCOND, 
                         season, day_part),
@@ -185,7 +202,7 @@ dfshort_counts.long <-  melt(dfshort_counts, id.vars='n')
 ggplot(data = dfshort_counts.long,
        aes(x = value, y = n)) +
     geom_bar(stat = 'identity', position = 'dodge') +
-    facet_wrap(~ variable, scales = 'free_x', ncol=2) 
+    facet_wrap(~ variable, scales = 'free_x', ncol=3)  
 
 ```
 
@@ -199,7 +216,7 @@ Observations:
 
 
 ### \
-The **Counts of Things**
+7. The **Counts of Things**
 
 These are the quantitative variables, which are simply counts of things. Let's see what they are and how they're spread out.
 
@@ -223,7 +240,7 @@ ggplot(data = dfshort_counts.long,
 
 
 #### \
-Since many of the **Counts of Things** have 0 value, plot them again but this time with log10 so non-zero values are more visible.
+8. Since many of the **Counts of Things** have 0 value, plot them again but this time with log10 so non-zero values are more visible.
 ```{r echo=FALSE, message=FALSE, warning=FALSE, CountOfThings}
 
 ggplot(data = dfshort_counts.long,
@@ -393,7 +410,7 @@ Yes. I created point-in-time variables to help make reporting and graphing easie
 * hour
 * day_part (morning, afternoon, etc)
 
-I created a new collision categorical variable (SDOTtype) to group common SDOT's collision types. For example, I combined 6 types of 'Sideswipe' collision types into one category called 'Sideswipe'.
+I created a new collision categorical variable (SDOT_striking) to group common SDOT's collision types. For example, I combined 6 types of 'Sideswipe' collision types into one category called 'Sideswipe'.
 
 
 ### Of the features you investigated, were there any unusual distributions? \
@@ -423,12 +440,12 @@ Other changes:
 
 #\
 Bivariate Plots Section
-
+TODO: Fix this?
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Pairs_Panels}
-
 set.seed(1965)
-df_samp <- sample_n(df[, c('SEVERITYCODE', 'SDOTtype','COLLISIONTYPE',
+df_samp <- sample_n(df[, c('SEVERITYCODE', 
+                           'SDOT_striking','COLLISIONTYPE',
                            'ADDRTYPE', 'JUNCTIONTYPE', 'VEHCOUNT', 
                            'PERSONCOUNT', 'DUI','WEATHER','DISTRACTED',
                            'ROADCOND','LIGHTCOND','SPEEDING','day_part','hour')], 10000)
@@ -436,17 +453,6 @@ pairs.panels(df_samp, gap=0)
 rm(df_samp)
 
 ```
-
-From this correlation chart, we see moderately strong relationships between:
-
-**DUI* and ...
-
-* Person Count
-* Vehicle Count
-* Collision Type
-* Severity Code
-* Weather
-* Light Condition 
 
 **Vehicle Count** and ...
 
@@ -461,11 +467,11 @@ Let's view these stronger correlations in a couple different ways ...
 Correlations table
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Corr_Columns}
-
 # Create temporary df with variables of interest for ggcorr, 
 # converting dtypes to integers, rqmt for ggcorr
+df$SDOT_striker <- as.factor(df$SDOT_striker)
 df2 <- data.frame(lapply(df[, 
-                            c('DUI','VEHCOUNT','SEVERITYCODE','COLLISIONTYPE', 
+                            c('DUI','VEHCOUNT','SEVERITYCODE','COLLISIONTYPE', 'SDOT_striker',
                               'WEATHER','PERSONCOUNT','ROADCOND','LIGHTCOND')],
                          function(x) as.integer(x)))
 
@@ -482,8 +488,7 @@ ggcorr(df2, method = c('everything', 'pearson'), label = TRUE, size = 2.5)
 rm(df2)
 ```
 
-\
-It is clear that **DUI** and **VEHCOUNT** have the strongest relationships.
+
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -605,52 +610,8 @@ ggplot(data = create_summary(df, year, DISTRACTED), aes(x = year, y = perc, fill
 There was a significant increase in DISTRACTED being a factor in collisions, starting in the year 2013. Perhaps this is a result of the increase in the use of mobile devices, or directives for the SPD to record 'DISTRACTED' as a factor in collisions. More data is required to do any more analysis, outside the scope of this study.
 
 
-###\
-SPD Reports vs SDOT Records
-
-In the Univariate section, we saw a possible disparity between SPD's reporting of collision factors and SDOT's follow-up recording of these factors. Let's look into this a little more.
-
-####\
-View By Count
-```{r echo=FALSE, warning=FALSE, message=FALSE, SPDvsSDOT}
-
-ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE), 
-       aes(x = SDOTtype,
-           y = count, 
-           fill = factor(COLLISIONTYPE))) +
-    scale_fill_brewer(palette="Paired")  + 
-    geom_bar(stat='identity') +
-    labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
-    mylayer_long_xlabel
-```
-
-It's interesting that SPD reports categorizing a collision as 'Sideswipe', eventually gets categorized by the SDOT as 'Other Collision' or 'Rear End'. Also, it appears that SPD 'Pedestrian' labels frequently show up in SDOT records as 'Head On'. 
-
-####\
-View By Percent
-
-View the same information as the plot above, but show the percentages of COLLISIONTYPE's within each SDOTtype, instead of count:
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-
-ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE), 
-       aes(x = SDOTtype, y = perc, fill = factor(COLLISIONTYPE))) +
-    scale_fill_brewer(palette="Paired")  + 
-    geom_bar(stat='identity') +
-    scale_y_continuous(labels = percent_format()) +
-    labs(x = 'SDOTtype', fill = 'SPD COLLISIONTYPE') +
-    mylayer_long_xlabel
-
-```
-
-Plotting by percentage makes it easier to see the spread of COLLISIONTYPEs. For example, we can now easily see that SPD 'Sideswipe' (yellow) are also found in SDOT 'Hits Pedestrian' records. 
-
-Also, we can now see that SPD reported collisions involving Cycles are spread-out over several SDOT categories. 
-
-It is possible that SDOT reclassifies Collision Types after all the dust settles and more facts are available. It would be interesting to dig a little deeper into reclassifications.
-
 ### \
-Let's do a similar study of JUNCTIONTYPE vs ADDRTYPE.
+Let's study of JUNCTIONTYPE vs ADDRTYPE.
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, JUNCTIONvsADDR}
 
@@ -672,10 +633,10 @@ Has the distribution of any Collision types **rates** changed over the years?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-p1 <- ggplot(data = create_summary(df, year, SDOTtype), 
-             aes(x = year, y = perc, fill = factor(SDOTtype))) +
+p1 <- ggplot(data = create_summary(df, year, COLLISIONTYPE), 
+             aes(x = year, y = perc, fill = factor(COLLISIONTYPE))) +
     geom_bar(stat='identity') +
-    labs(fill = 'SDOTtype')  +
+    labs(fill = 'SDOT_striking')  +
     scale_y_continuous(labels = percent_format()) +
     scale_fill_brewer(palette = "Dark2")  
 
@@ -684,46 +645,41 @@ p1  +
 
 ```
 
-Surprisingly, it appears the % of collisions with **'Hits Pedestrian'** rose significantly around the years where there were fewer total collisions (2010-2011). Are there more pedestrians on the road, and fewer drivers? Maybe more inattentive pedestrians getting hit? That would be an interesting further study, but outside the scope of this project since DISTRACTED does not specify who was inattentive.
-
-It will be interesting to look more into the Hits Pedistrian increase. 
-
 ### \
 Adjusted **Hits Pedestrian**
 
->There are several variables that indicate a Pedestrian was involved in a collision (COLLISIONTYPE, SDOTtype, PEDCOUNT). Are all pedestrian-related collisions being marked by SDOT as 'Hits Pedestrian'? 
+>There are several variables that indicate a Pedestrian was involved in a collision (COLLISIONTYPE, SDOT_type_striking, PEDCOUNT). Are all pedestrian-related collisions being marked by SDOT as 'Hits Pedestrian'? 
 >
 >Let's Bundle all records with any Pedestrian indicator into 'Hits Pedestrian'. Will the increased trend of 'Hits Pedestrian' records stay the same, or even out across the years?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-df$SDOTtype.Adjusted <- df$SDOTtype
+df$SDOT_striking.Adjusted <- df$SDOT_striking
 
 df <- df %>%
-    mutate(SDOTtype.Adjusted = case_when(
-        .$SDOTtype == 'Hits Pedestrian' ~ 'Hits Pedestrian',
+    mutate(SDOT_striking.Adjusted = case_when(
+        .$SDOT_struck == 'Pedestrian' ~ 'Hits Pedestrian',
         .$COLLISIONTYPE == 'Pedestrian' ~ 'Hits Pedestrian',
         .$PEDCOUNT >= 1 ~'Hits Pedestrian',
-        TRUE ~ as.character(SDOTtype)) )
+        TRUE ~ as.character(SDOT_striking)) )
 
-ggplot(data = create_summary(subset(df, SDOTtype.Adjusted == 'Hits Pedestrian'), SDOTtype.Adjusted, SDOTtype), 
-       aes(x = SDOTtype.Adjusted, y = perc, fill = factor(SDOTtype))) +
+ggplot(data = create_summary(subset(df, SDOT_striking.Adjusted == 'Hits Pedestrian'), SDOT_striking.Adjusted, SDOT_striking),
+       aes(x = SDOT_striking.Adjusted, y = perc, fill = factor(SDOT_striking))) +
     scale_fill_brewer(palette = "Dark2")  + 
     geom_bar(stat='identity') +
     scale_y_continuous(labels = percent_format()) +
-    labs(fill = 'SDOTtype')  
+    labs(fill = 'SDOT_striking')  
 ```
 
-Here we see approximately 25% of the records with some indication of Pedestrian involvement were originally classified as 'Head On'. This suggests that most pedestrians are hit with the front of a car, as opposed to sideswiped or rear-ended.
 
 #### If we re-classify all the above as 'Hits Pedestrian', will the trend change?
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-p2 <- ggplot(data = create_summary(df, year, SDOTtype.Adjusted), 
-             aes(x = year, y = perc, fill = factor(SDOTtype.Adjusted))) +
+p2 <- ggplot(data = create_summary(df, year, SDOT_striking.Adjusted), 
+             aes(x = year, y = perc, fill = factor(SDOT_striking.Adjusted))) +
     geom_bar(stat='identity') +
-    labs(fill = 'SDOTtype.Adjusted') +
+    labs(fill = 'SDOT_striking.Adjusted') +
     scale_y_continuous(labels = percent_format()) +
     scale_fill_brewer(palette = "Dark2") 
 
@@ -743,10 +699,6 @@ plot_grid(prow, legend_shared, ncol = 1)
 rm(legend_shared)
 
 ```
-
-Comparing the original and the Adjusted plots, it appears that the ratios are pretty much stay the same, except some of the 'Head On' records got moved to 'Hits Pedestrian'. 
-
-**Theory**:  Whatever causes the SPD and SDOT discrepancies in 'Pedestrian' reporting  appears to be consistent, and the increased rate in 'Hits Pedestrian' is true (we cannot reject the null hypothesis that pedestrian's getting hit rate did not change.)
 
 
 ###\
@@ -854,7 +806,7 @@ plot_under <- function(data, x_col, fill_col, mapping) {
 
 ``` 
 
-
+TODO: Fix these
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
 p1 <- plot_under(subset(dfu, LIGHTCOND != ''), DUI, LIGHTCOND, aes(x = DUI, y = perc, fill = factor(LIGHTCOND)))+
@@ -865,7 +817,7 @@ p2 <- plot_under(subset(dfu, WEATHER != 'Other'), DUI, WEATHER, aes(x = DUI, y =
     guides(fill=guide_legend(title='Weather Description')) + labs(title = 'Weather')  +
     theme(axis.title.x = element_blank(), axis.text.y = element_blank(), axis.title.y = element_blank()) 
 
-p3 <- plot_under(subset(dfu, SDOTtype != ''), DUI, SDOTtype, aes(x = DUI, y = perc, fill = factor(SDOTtype)))+
+p3 <- plot_under(subset(dfu, SDOT_striking != ''), DUI, SDOT_striking, aes(x = DUI, y = perc, fill = factor(SDOT_striking)))+
     guides(fill=guide_legend(title='Collision Type')) + labs(title='Collision Type') 
 
 grid.arrange(p1, p2, p3, ncol=2)
@@ -882,13 +834,13 @@ Although **Weather Condition** had a strong correlation (.6) with DUI, there doe
 
 
 ### \
-Let's look a little closer at the SDOTtype and LIGHTCOND plots in larger scale.
+Let's look a little closer at the SDOT_striking and LIGHTCOND plots in larger scale.
 
 
-#### DUI and SDOTtype
+#### DUI and SDOT_striking
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 
-plot_under(dfu, DUI, SDOTtype, aes(x = DUI, y = perc, fill = factor(SDOTtype)))
+plot_under(dfu, DUI, SDOT_striking, aes(x = DUI, y = perc, fill = factor(SDOT_striking)))
 
 ```
 
@@ -929,7 +881,7 @@ LIGHTCOND and TIME line graph.
 
 Let's look at the same data, in a line graph format. It may be easier to see what's going on. Let's also look at percentages instead of counts.
 
-
+TODO: Fix this
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 time_perc <- subset(df, !is.na(hour) & !(LIGHTCOND %in% c('', 'Other', 'Unknown'))) %>%
@@ -1156,18 +1108,18 @@ What kind of collisions involve fatalities, and on average how many annually?
 
 fatality_counts <- 
     subset(df, SEVERITYDESC %in% c('Fatality')) %>%
-    group_by(year, SDOTtype.Adjusted) %>%
+    group_by(year, SDOT_striking.Adjusted) %>%
     summarise(total = sum(FATALITIES))
 
 p_f <- 
     geom_boxplot(data = fatality_counts,
                  aes(x = '', y = total,
-                     color = SDOTtype.Adjusted))
+                     color = SDOT_striking.Adjusted))
 
 ggplot() +  p_f +
-    facet_wrap(~ SDOTtype.Adjusted)  +
+    facet_wrap(~ SDOT_striking.Adjusted)  +
     theme(legend.position = 'bottom', legend.direction = 'horizontal') +
-    labs(title = 'Annual Fatality Counts by SDOT Collision Type', x = '', color = 'SDOTtype.Adjusted') +
+    labs(title = 'Annual Fatality Counts by SDOT Collision Type', x = '', color = 'SDOT_striking.Adjusted') +
     mylayer_color 
 ```
 
@@ -1178,7 +1130,7 @@ More analysis would be required to figure out what 'Other Collision' involves. L
 ```{r echo=FALSE, warning=FALSE, message=FALSE, MultiBoxes2}
 
 fatality_counts2 <- 
-    subset(df, SEVERITYDESC %in% c('Fatality') & SDOTtype.Adjusted %in% c('Other Collision')) %>%
+    subset(df, SEVERITYDESC %in% c('Fatality') & SDOT_striking.Adjusted %in% c('Other Collision')) %>%
     group_by(year, COLLISIONTYPE) %>%
     summarise(total = sum(FATALITIES))
 
@@ -1190,7 +1142,7 @@ p_f2 <-
 ggplot() +  p_f2 +
     facet_wrap(~ COLLISIONTYPE)  +
     theme(legend.position = 'bottom', legend.direction = 'horizontal') +
-    labs(title = 'Annual Fatality Counts by SPD Collision Type WHEN SDOT is "Other"', x = '', color = 'SDOTtype.Adjusted') +
+    labs(title = 'Annual Fatality Counts by SPD Collision Type WHEN SDOT is "Other"', x = '', color = 'SDOT_striking.Adjusted') +
     mylayer_color 
 ```
 
@@ -1210,8 +1162,8 @@ p1 <- ggplot(data = create_summary(df, VEHCOUNT, COLLISIONTYPE),
     scale_x_continuous(breaks = seq(0,15,1)) +
     mylayer_long_xlabel 
 
-p2 <- ggplot(data = create_summary(df, VEHCOUNT, SDOTtype),
-             aes( fill = factor(SDOTtype))) +
+p2 <- ggplot(data = create_summary(df, VEHCOUNT, SDOT_striking),
+             aes( fill = factor(SDOT_striking))) +
     geom_bar(aes(x = VEHCOUNT, y = perc), stat='identity') +
     scale_fill_brewer(palette="Paired")  +
     labs(fill = 'SDOT Collision Type', x = 'Vehicle Count') +
@@ -1314,8 +1266,8 @@ Plot Two - Categorical Differences
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, Plot_2}
 
-ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE), 
-       aes(x = SDOTtype, y = perc, fill = factor(COLLISIONTYPE))) +
+ggplot(data = create_summary(df, SDOT_striking, COLLISIONTYPE), 
+       aes(x = SDOT_striking, y = perc, fill = factor(COLLISIONTYPE))) +
     scale_fill_brewer(palette="Paired")  + 
     geom_bar(stat='identity') +
     scale_y_continuous(labels = percent_format()) +
@@ -1323,7 +1275,8 @@ ggplot(data = create_summary(df, SDOTtype, COLLISIONTYPE),
          y = 'Percent (of each SPD Category)',
          title = 'SPD vs SDOT Incident Categorizations',
          fill = 'SPD Category') +
-    mylayer_long_xlabel
+    mylayer_long_xlabel +
+    coord_flip()
 
 ```
 

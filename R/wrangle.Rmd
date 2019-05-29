@@ -499,6 +499,7 @@ df <- df %>%
 print_value_counts(df, 'SDOT_striker')
 
 # Struck (the one getting struck); Note: Pedestrian includes Pedalcyclist not in traffic
+# Combine 'Object' and 'Fixed Object'
 df <- df %>%
     mutate(., SDOT_struck = with(., case_when(
         (SDOT_COLCODE == 1 | SDOT_COLCODE == 3 | SDOT_COLCODE == 4 )   ~ 'Motor Vehicle',
@@ -509,9 +510,9 @@ df <- df %>%
         (SDOT_COLCODE >= 17 & SDOT_COLCODE <= 23) ~ 'Pedalcyclist',
         (SDOT_COLCODE == 24 | SDOT_COLCODE == 44 | SDOT_COLCODE == 64) ~ 'Pedestrian',
         (SDOT_COLCODE == 25 | SDOT_COLCODE == 45 | SDOT_COLCODE == 65) ~ 'Train',
-        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object in Roadway',
+        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object',
         (SDOT_COLCODE == 27 | SDOT_COLCODE == 47 | SDOT_COLCODE == 67) ~ 'Non Collision',
-        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Fixed Object',
+        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Object',
         (SDOT_COLCODE == 29 | SDOT_COLCODE == 49 | SDOT_COLCODE == 69) ~ 'Non Collision',
         (SDOT_COLCODE >= 30 & SDOT_COLCODE <= 36) ~ 'Motor Vehicle',
         (SDOT_COLCODE >= 37 & SDOT_COLCODE <= 43) ~ 'Pedalcyclist',
