@@ -152,6 +152,45 @@ subset(df, is.na(SEVERITYCODE))
 ```
 **Observation:** Yes. The NULL SEVERITYCODE could be changed to '0' because INJURY, SERIOUSINJURIES and FATALITIES = 0
 
+#### What do SEVERITYCODE and SEVERITYDESC look like?
+```{r}
+df %>%
+    group_by(fct_explicit_na(SEVERITYCODE), fct_explicit_na(SEVERITYDESC)) %>%
+    summarize(n = n()) 
+```
+#### There are also 3 columns with counts of INJURIES, SERIOUSINJURIES and FATALITIES (but not a count for property damage). Are the SEVERITYCODE/SEVERITYDESC values derived directly from the counts that are > 0?
+```{r}
+category <- c('Unknown', 'Injury Collision','Serious Injury Collision','Fatality Collision') 
+
+df %>%
+    mutate(., fake_severitydesc = with(., case_when(
+        (FATALITIES > 0) ~ 'Fatality Collision',
+        (SERIOUSINJURIES > 0) ~ 'Serious Injury Collision',
+        (INJURIES > 0) ~ 'Injury Collision' #
+    ))) %>%
+    group_by(fake_severitydesc) %>%
+    summarize(n = n()) %>%
+    slice(match(category, fake_severitydesc))  # order rows by severity category
+```
+**Observations:** No. Only the number of 'Fatality Collision' records (318) is a match, so we cannot say that SEVERITYCODE/SEVERITYDESC is derived directly from the INJURIES, SERIOUSINJURIES and FATALATIES columns.
+
+There are 37 more records where SEVERITYDESC = 'Serious Injury Collision' than SERIOUSINJURIES > 0, and 
+37 records fewer records where SEVERITYDESC = 'Injury Collision' than INJURIES > 0. 
+
+#### Do these 37 records have anything in common?
+```{r}
+df %>% filter(
+        (SEVERITYDESC == 'Fatality Collision' & FATALITIES == 0) |
+        (SEVERITYDESC == 'Injury Collsion' & INJURIES == 0) |
+        (SEVERITYDESC == 'Serious Injury Collision' & SERIOUSINJURIES == 0) |
+        ((FATALITIES + INJURIES + SERIOUSINJURIES > 0) & 
+             SEVERITYCODE %in% c('0','1')) # Unknown or Property Damage
+        ) %>%
+    arrange(SDOT_COLDESC)
+```
+**Observations:** Not that I can see, other than many of the factor values are null. 
+
+
 #### There are several collision type columns, what do they look like?
 ```{r}
 # Print count and % of column values
@@ -362,6 +401,7 @@ as.data.frame(lapply(df[,cols],
 * Minimum INCDATE = '2003-10-06T00:00:00.000Z', the only record in 2003
 * SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value
 * The SEVERITYCODE=NA could be marked '0' instead because INJURY, SERIOUSINJURIES and FATALITIES = 0
+* There are a handful of records where the INJURIES and SERIOUSINJURIES counts do not match the SEVERITYCODE.
 * The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert
 * SDOT_COLCODE contains categorical data but is datatype Integer.
 * Inconsistencies exist between SDOT_COLDESC and ST_COLDESC, and other 'counts of things' columns (e.g. PEDCOUNT).
@@ -475,6 +515,7 @@ df <- df %>%
 
 df[cols] <- lapply(df[cols], as.factor)
 ```
+
 
 #### Create SDOT_striker and SDOT_struck(ee) 
 Even though there are some inconsistencies between SDOT_COLDESC and other 'counts of things' columns (e.g. PEDCOUNT), the both the SDOT_COLDESC and the 'SDOT Collision Code Matrix' (https://github.com/leaherb/Seattle-Collisions/blob/master/Collisions_OD.pdf) provide a clear indication of what the SDOT records as What did the striking ('striker') and What got struck ('struck'). 

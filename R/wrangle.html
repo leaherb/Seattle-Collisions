@@ -454,6 +454,474 @@ subset(df, is.na(SEVERITYCODE) | is.na(SDOT_COLCODE) | is.na(SDOT_COLDESC), cols
 197563            N</code></pre>
 <p><strong>Observation:</strong> Yes. The NULL SEVERITYCODE could be changed to ‘0’ because INJURY, SERIOUSINJURIES and FATALITIES = 0</p>
 </div>
+<div id="what-do-severitycode-and-severitydesc-look-like" class="section level4">
+<h4>What do SEVERITYCODE and SEVERITYDESC look like?</h4>
+<pre class="r"><code>df %&gt;%
+    group_by(fct_explicit_na(SEVERITYCODE), fct_explicit_na(SEVERITYDESC)) %&gt;%
+    summarize(n = n()) </code></pre>
+<pre><code># A tibble: 6 x 3
+# Groups:   fct_explicit_na(SEVERITYCODE) [6]
+  `fct_explicit_na(SEVERITYCODE)` `fct_explicit_na(SEVERITYDESC)`      n
+  &lt;fct&gt;                           &lt;fct&gt;                            &lt;int&gt;
+1 0                               Unknown                          19672
+2 1                               Property Damage Only Collision  128530
+3 2                               Injury Collision                 54497
+4 2b                              Serious Injury Collision          2859
+5 3                               Fatality Collision                 318
+6 (Missing)                       Unknown                              1</code></pre>
+</div>
+<div id="there-are-also-3-columns-with-counts-of-injuries-seriousinjuries-and-fatalities-but-not-a-count-for-property-damage.-are-the-severitycodeseveritydesc-values-derived-directly-from-the-counts-that-are-0" class="section level4">
+<h4>There are also 3 columns with counts of INJURIES, SERIOUSINJURIES and FATALITIES (but not a count for property damage). Are the SEVERITYCODE/SEVERITYDESC values derived directly from the counts that are &gt; 0?</h4>
+<pre class="r"><code>category &lt;- c('Unknown', 'Injury Collision','Serious Injury Collision','Fatality Collision') 
+
+df %&gt;%
+    mutate(., fake_severitydesc = with(., case_when(
+        (FATALITIES &gt; 0) ~ 'Fatality Collision',
+        (SERIOUSINJURIES &gt; 0) ~ 'Serious Injury Collision',
+        (INJURIES &gt; 0) ~ 'Injury Collision' #
+    ))) %&gt;%
+    group_by(fake_severitydesc) %&gt;%
+    summarize(n = n()) %&gt;%
+    slice(match(category, fake_severitydesc))  # order rows by severity category</code></pre>
+<pre><code># A tibble: 3 x 2
+  fake_severitydesc            n
+  &lt;chr&gt;                    &lt;int&gt;
+1 Injury Collision         54534
+2 Serious Injury Collision  2822
+3 Fatality Collision         318</code></pre>
+<p><strong>Observations:</strong> No. Only the number of ‘Fatality Collision’ records (318) is a match, so we cannot say that SEVERITYCODE/SEVERITYDESC is derived directly from the INJURIES, SERIOUSINJURIES and FATALATIES columns.</p>
+<p>There are 37 more records where SEVERITYDESC = ‘Serious Injury Collision’ than SERIOUSINJURIES &gt; 0, and 37 records fewer records where SEVERITYDESC = ‘Injury Collision’ than INJURIES &gt; 0.</p>
+</div>
+<div id="do-these-37-records-have-anything-in-common" class="section level4">
+<h4>Do these 37 records have anything in common?</h4>
+<pre class="r"><code>df %&gt;% filter(
+        (SEVERITYDESC == 'Fatality Collision' &amp; FATALITIES == 0) |
+        (SEVERITYDESC == 'Injury Collsion' &amp; INJURIES == 0) |
+        (SEVERITYDESC == 'Serious Injury Collision' &amp; SERIOUSINJURIES == 0) |
+        ((FATALITIES + INJURIES + SERIOUSINJURIES &gt; 0) &amp; 
+             SEVERITYCODE %in% c('0','1')) # Unknown or Property Damage
+        ) %&gt;%
+    arrange(SDOT_COLDESC)</code></pre>
+<pre><code>   OBJECTID INCKEY COLDETKEY REPORTNO    STATUS     ADDRTYPE INTKEY
+1      1033 309411    310691  E880858 Unmatched        Block     NA
+2      1125 310915    312235  3810353 Unmatched Intersection  26055
+3      1142 310933    312253  3815238 Unmatched Intersection 487378
+4      1394 304017    305257  3814042 Unmatched Intersection  29368
+5      4513  16715     16715  3593815 Unmatched Intersection  29033
+6    132415 146519    146539  3330815 Unmatched Intersection  29729
+7    164552 203888    204028  C802692 Unmatched        Block     NA
+8    176505 225697    226037  3673578 Unmatched        Block     NA
+9    177993 226062    226402  3707528 Unmatched        Block     NA
+10   180073 227937    228277  3754585 Unmatched Intersection  33645
+11   186844 238885    239325  3773565 Unmatched Intersection  29734
+12   201620 307565    308845  3751070 Unmatched        Block     NA
+13   201622 307152    308432  3742557 Unmatched Intersection  34939
+14   202840 308126    309406  3815003 Unmatched        Block     NA
+15   203201 308162    309442  3751637 Unmatched Intersection  25994
+16   174716 221342    221622  3767505 Unmatched        Block     NA
+17     1901   1334      1334  3552665 Unmatched Intersection  36487
+18   131129 146004    146024  3549408 Unmatched        Block     NA
+19   149478 172162    172182  3699081 Unmatched        Block     NA
+20   179655 227905    228245  3735613 Unmatched        Block     NA
+21   183336 237668    238108  3744458 Unmatched        Block     NA
+22      880 310717    312037  E886587 Unmatched Intersection  30125
+23      948 309596    310876  E881568 Unmatched Intersection  29380
+24     1013 309176    310456  E879716 Unmatched        Block     NA
+25   130332 145389    145389  3505039 Unmatched        Block     NA
+26   134685 148595    148615  3574727 Unmatched Intersection  29971
+27   178802 231098    231498  3746455 Unmatched        Block     NA
+28   202583 308557    309837  3706846 Unmatched        Block     NA
+29   203420 306894    308174  3809902 Unmatched        Block     NA
+30   155605 186507    186587  E697697 Unmatched        Block     NA
+31   157410 187725    187805  C787882 Unmatched        Block     NA
+32   172851 218360    218660  3588388 Unmatched        Block     NA
+33   175538 221225    221505  3704652 Unmatched Intersection  29019
+34   187383 244671    245251  3753306 Unmatched        Block     NA
+35   202883 307916    309196  3811118 Unmatched Intersection  35299
+36   130647 145415    145415  C776185 Unmatched        Block     NA
+37   170513 213160    213440  3706918 Unmatched Intersection  27138
+                                                          LOCATION
+1                FREMONT AVE N BETWEEN N 105TH ST AND N 107TH S ST
+2                                       18TH AVE NE AND NE 50TH ST
+3                          M L KING JR ER WAY S AND S HENDERSON ST
+4                                       18TH AVE E AND E THOMAS ST
+5                                   15TH AVE E AND E HARRISON N ST
+6                                          12TH AVE AND E OLIVE ST
+7                      11TH AVE BETWEEN E OLIVE ST AND E HOWELL ST
+8                  S FLETCHER ST BETWEEN 50TH AVE S AND 51ST AVE S
+9    RAINIER AVE S BETWEEN S NORMAN ST AND I90 WB RAINIER NB OF RP
+10                            M L KING JR WR WAY S AND S GRAHAM ST
+11                                      BOYLSTON AVE AND E PINE ST
+12            SHILSHOLE AVE NW BETWEEN 22ND AVE NW AND 24TH AVE NW
+13                                   34TH AVE SW AND SW TRENTON ST
+14           RAINIER AVE S BETWEEN S FONTANELLE ST AND S AUSTIN ST
+15                                     15TH AVE NE AND COWEN PL NE
+16             LAKESIDE AVE NE BETWEEN NE 107TH ST AND NE 112TH ST
+17                              ROOSEVELT WAY NE AND NE 113TH N ST
+18                    AURORA AVE N BETWEEN GARFIELD ST AND HOWE ST
+19            AIRPORT WAY S BETWEEN S NORFOLK ST AND CITY LIMITS S
+20            EAST MARGINAL WAY S BETWEEN 16TH AVE S AND BOEING DR
+21               S CLOVERDALE ST BETWEEN 10TH AVE S AND 12TH AVE S
+22                                       19TH AVE AND E MADISON ST
+23                                        23RD AVE E AND E JOHN ST
+24                 GREENWOOD AVE N BETWEEN N 81ST ST AND N 82ND ST
+25              SW ADMIRAL WAY BETWEEN 60TH AVE SW AND 61ST AVE SW
+26                                           4TH AVE AND CHERRY ST
+27                          BALLARD BR BETWEEN POINT A AND POINT B
+28 SYLVAN WAY SW BETWEEN HIGH POINT DR SW AND SW SYLVAN HEIGHTS DR
+29                  NW 80TH ST BETWEEN 17TH AVE NW AND 18TH AVE NW
+30                   15TH AVE NE BETWEEN NE 65TH ST AND NE 66TH ST
+31               WALLINGFORD AVE N BETWEEN N 85TH ST AND N 88TH ST
+32     COLORADO AVE S BETWEEN S ATLANTIC ST AND S MASSACHUSETTS ST
+33                                  BROADWAY E AND E REPUBLICAN ST
+34                        1ST AVE BETWEEN YESLER WAY AND CHERRY ST
+35                                  RENTON AVE S AND S FLETCHER ST
+36                  4TH AVE S BETWEEN S FRONT ST AND S MICHIGAN ST
+37                                 12TH AVE NE AND NE CAMPUS EB PY
+   EXCEPTRSNCODE
+1           &lt;NA&gt;
+2           &lt;NA&gt;
+3           &lt;NA&gt;
+4           &lt;NA&gt;
+5           &lt;NA&gt;
+6           &lt;NA&gt;
+7           &lt;NA&gt;
+8           &lt;NA&gt;
+9           &lt;NA&gt;
+10          &lt;NA&gt;
+11          &lt;NA&gt;
+12          &lt;NA&gt;
+13          &lt;NA&gt;
+14          &lt;NA&gt;
+15          &lt;NA&gt;
+16          &lt;NA&gt;
+17          &lt;NA&gt;
+18          &lt;NA&gt;
+19          &lt;NA&gt;
+20          &lt;NA&gt;
+21          &lt;NA&gt;
+22          &lt;NA&gt;
+23          &lt;NA&gt;
+24          &lt;NA&gt;
+25          &lt;NA&gt;
+26          &lt;NA&gt;
+27          &lt;NA&gt;
+28          &lt;NA&gt;
+29          &lt;NA&gt;
+30          &lt;NA&gt;
+31          &lt;NA&gt;
+32          &lt;NA&gt;
+33          &lt;NA&gt;
+34          &lt;NA&gt;
+35          &lt;NA&gt;
+36           NEI
+37          &lt;NA&gt;
+                                                  EXCEPTRSNDESC
+1                                                          &lt;NA&gt;
+2                                                          &lt;NA&gt;
+3                                                          &lt;NA&gt;
+4                                                          &lt;NA&gt;
+5                                                          &lt;NA&gt;
+6                                                          &lt;NA&gt;
+7                                                          &lt;NA&gt;
+8                                                          &lt;NA&gt;
+9                                                          &lt;NA&gt;
+10                                                         &lt;NA&gt;
+11                                                         &lt;NA&gt;
+12                                                         &lt;NA&gt;
+13                                                         &lt;NA&gt;
+14                                                         &lt;NA&gt;
+15                                                         &lt;NA&gt;
+16                                                         &lt;NA&gt;
+17                                                         &lt;NA&gt;
+18                                                         &lt;NA&gt;
+19                                                         &lt;NA&gt;
+20                                                         &lt;NA&gt;
+21                                                         &lt;NA&gt;
+22                                                         &lt;NA&gt;
+23                                                         &lt;NA&gt;
+24                                                         &lt;NA&gt;
+25                                                         &lt;NA&gt;
+26                                                         &lt;NA&gt;
+27                                                         &lt;NA&gt;
+28                                                         &lt;NA&gt;
+29                                                         &lt;NA&gt;
+30                                                         &lt;NA&gt;
+31                                                         &lt;NA&gt;
+32                                                         &lt;NA&gt;
+33                                                         &lt;NA&gt;
+34                                                         &lt;NA&gt;
+35                                                         &lt;NA&gt;
+36 Not Enough Information, or Insufficient Location Information
+37                                                         &lt;NA&gt;
+   SEVERITYCODE             SEVERITYDESC COLLISIONTYPE PERSONCOUNT
+1            2b Serious Injury Collision          &lt;NA&gt;           3
+2            2b Serious Injury Collision          &lt;NA&gt;           4
+3            2b Serious Injury Collision          &lt;NA&gt;           2
+4            2b Serious Injury Collision          &lt;NA&gt;           2
+5            2b Serious Injury Collision          &lt;NA&gt;           2
+6            2b Serious Injury Collision          &lt;NA&gt;           1
+7            2b Serious Injury Collision          &lt;NA&gt;           1
+8            2b Serious Injury Collision          &lt;NA&gt;           2
+9            2b Serious Injury Collision          &lt;NA&gt;           1
+10           2b Serious Injury Collision          &lt;NA&gt;           4
+11           2b Serious Injury Collision          &lt;NA&gt;           4
+12           2b Serious Injury Collision          &lt;NA&gt;           2
+13           2b Serious Injury Collision          &lt;NA&gt;           2
+14           2b Serious Injury Collision          &lt;NA&gt;           3
+15           2b Serious Injury Collision          &lt;NA&gt;           2
+16           2b Serious Injury Collision          &lt;NA&gt;           1
+17           2b Serious Injury Collision          &lt;NA&gt;           1
+18           2b Serious Injury Collision          &lt;NA&gt;           2
+19           2b Serious Injury Collision          &lt;NA&gt;           1
+20           2b Serious Injury Collision          &lt;NA&gt;           1
+21           2b Serious Injury Collision          &lt;NA&gt;           1
+22           2b Serious Injury Collision          &lt;NA&gt;           2
+23           2b Serious Injury Collision          &lt;NA&gt;           3
+24           2b Serious Injury Collision          &lt;NA&gt;           3
+25           2b Serious Injury Collision          &lt;NA&gt;           1
+26           2b Serious Injury Collision          &lt;NA&gt;           2
+27           2b Serious Injury Collision          &lt;NA&gt;           4
+28           2b Serious Injury Collision          &lt;NA&gt;           3
+29           2b Serious Injury Collision          &lt;NA&gt;           4
+30           2b Serious Injury Collision          &lt;NA&gt;           2
+31           2b Serious Injury Collision          &lt;NA&gt;           1
+32           2b Serious Injury Collision          &lt;NA&gt;           3
+33           2b Serious Injury Collision          &lt;NA&gt;           1
+34           2b Serious Injury Collision          &lt;NA&gt;           1
+35           2b Serious Injury Collision          &lt;NA&gt;           1
+36           2b Serious Injury Collision          &lt;NA&gt;           1
+37           2b Serious Injury Collision          &lt;NA&gt;           2
+   PEDCOUNT PEDCYLCOUNT VEHCOUNT INJURIES SERIOUSINJURIES FATALITIES
+1         0           0        0        1               0          0
+2         0           0        0        1               0          0
+3         0           0        0        1               0          0
+4         0           0        0        1               0          0
+5         0           0        0        1               0          0
+6         0           0        0        1               0          0
+7         0           0        0        1               0          0
+8         0           0        0        1               0          0
+9         0           0        0        1               0          0
+10        0           0        0        1               0          0
+11        0           0        0        2               0          0
+12        0           0        0        1               0          0
+13        0           0        0        1               0          0
+14        0           0        0        2               0          0
+15        0           0        0        1               0          0
+16        0           0        0        1               0          0
+17        0           0        0        1               0          0
+18        0           0        0        2               0          0
+19        0           0        0        1               0          0
+20        0           0        0        1               0          0
+21        0           0        0        1               0          0
+22        0           0        0        1               0          0
+23        0           0        0        3               0          0
+24        0           0        0        1               0          0
+25        0           0        0        1               0          0
+26        0           0        0        2               0          0
+27        0           0        0        4               0          0
+28        0           0        0        3               0          0
+29        0           0        0        2               0          0
+30        0           0        0        1               0          0
+31        0           0        0        1               0          0
+32        0           0        0        2               0          0
+33        0           0        0        1               0          0
+34        0           0        0        1               0          0
+35        0           0        0        1               0          0
+36        0           0        0        1               0          0
+37        0           0        0        1               0          0
+                    INCDATE  INCDTTM
+1  2019-01-08T00:00:00.000Z   1/8/19
+2  2019-01-18T00:00:00.000Z  1/18/19
+3  2019-01-17T00:00:00.000Z  1/17/19
+4  2018-10-01T00:00:00.000Z  10/1/18
+5  2013-04-10T00:00:00.000Z  4/10/13
+6  2013-05-18T00:00:00.000Z  5/18/13
+7  2015-05-17T00:00:00.000Z  5/17/15
+8  2016-08-04T00:00:00.000Z   8/4/16
+9  2016-08-18T00:00:00.000Z  8/18/16
+10 2016-09-30T00:00:00.000Z  9/30/16
+11 2017-04-13T00:00:00.000Z  4/13/17
+12 2018-11-17T00:00:00.000Z 11/17/18
+13 2018-11-19T00:00:00.000Z 11/19/18
+14 2018-12-09T00:00:00.000Z  12/9/18
+15 2018-12-11T00:00:00.000Z 12/11/18
+16 2016-06-06T00:00:00.000Z   6/6/16
+17 2013-03-27T00:00:00.000Z  3/27/13
+18 2013-05-04T00:00:00.000Z   5/4/13
+19 2014-07-20T00:00:00.000Z  7/20/14
+20 2016-09-16T00:00:00.000Z  9/16/16
+21 2017-03-28T00:00:00.000Z  3/28/17
+22 2019-01-08T00:00:00.000Z   1/8/19
+23 2019-01-07T00:00:00.000Z   1/7/19
+24 2019-01-03T00:00:00.000Z   1/3/19
+25 2013-05-02T00:00:00.000Z   5/2/13
+26 2013-06-23T00:00:00.000Z  6/23/13
+27 2016-11-19T00:00:00.000Z 11/19/16
+28 2018-12-26T00:00:00.000Z 12/26/18
+29 2018-11-15T00:00:00.000Z 11/15/18
+30 2015-02-03T00:00:00.000Z   2/3/15
+31 2014-03-07T00:00:00.000Z   3/7/14
+32 2016-04-28T00:00:00.000Z  4/28/16
+33 2016-06-04T00:00:00.000Z   6/4/16
+34 2017-07-01T00:00:00.000Z   7/1/17
+35 2018-12-03T00:00:00.000Z  12/3/18
+36 2013-03-25T00:00:00.000Z  3/25/13
+37 2016-02-03T00:00:00.000Z   2/3/16
+                              JUNCTIONTYPE SDOT_COLCODE
+1  Mid-Block (not related to intersection)           24
+2   At Intersection (intersection related)           24
+3   At Intersection (intersection related)           24
+4   At Intersection (intersection related)           24
+5   At Intersection (intersection related)           24
+6   At Intersection (intersection related)           24
+7  Mid-Block (not related to intersection)           24
+8  Mid-Block (not related to intersection)           24
+9  Mid-Block (not related to intersection)           24
+10  At Intersection (intersection related)           24
+11  At Intersection (intersection related)           24
+12 Mid-Block (not related to intersection)           24
+13  At Intersection (intersection related)           24
+14 Mid-Block (not related to intersection)           24
+15  At Intersection (intersection related)           24
+16 Mid-Block (not related to intersection)           29
+17  At Intersection (intersection related)           28
+18 Mid-Block (not related to intersection)           28
+19 Mid-Block (not related to intersection)           28
+20 Mid-Block (not related to intersection)           28
+21 Mid-Block (not related to intersection)           28
+22  At Intersection (intersection related)           11
+23  At Intersection (intersection related)           11
+24 Mid-Block (not related to intersection)           11
+25 Mid-Block (not related to intersection)           11
+26  At Intersection (intersection related)           11
+27 Mid-Block (not related to intersection)           11
+28 Mid-Block (not related to intersection)           11
+29 Mid-Block (not related to intersection)           11
+30 Mid-Block (not related to intersection)           14
+31    Mid-Block (but intersection related)           14
+32 Mid-Block (not related to intersection)           26
+33  At Intersection (intersection related)           26
+34 Mid-Block (not related to intersection)           26
+35  At Intersection (intersection related)           18
+36 Mid-Block (not related to intersection)            0
+37  At Intersection (intersection related)           64
+                                             SDOT_COLDESC INATTENTIONIND
+1                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+2                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+3                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+4                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+5                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+6                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+7                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+8                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+9                         MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+10                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+11                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+12                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+13                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+14                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+15                        MOTOR VEHCILE STRUCK PEDESTRIAN           &lt;NA&gt;
+16                       MOTOR VEHICLE OVERTURNED IN ROAD           &lt;NA&gt;
+17          MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT           &lt;NA&gt;
+18          MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT           &lt;NA&gt;
+19          MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT           &lt;NA&gt;
+20          MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT           &lt;NA&gt;
+21          MOTOR VEHICLE RAN OFF ROAD - HIT FIXED OBJECT           &lt;NA&gt;
+22 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+23 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+24 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+25 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+26 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+27 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+28 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+29 MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END AT ANGLE           &lt;NA&gt;
+30           MOTOR VEHICLE STRUCK MOTOR VEHICLE, REAR END           &lt;NA&gt;
+31           MOTOR VEHICLE STRUCK MOTOR VEHICLE, REAR END           &lt;NA&gt;
+32                    MOTOR VEHICLE STRUCK OBJECT IN ROAD           &lt;NA&gt;
+33                    MOTOR VEHICLE STRUCK OBJECT IN ROAD           &lt;NA&gt;
+34                    MOTOR VEHICLE STRUCK OBJECT IN ROAD           &lt;NA&gt;
+35  MOTOR VEHICLE STRUCK PEDALCYCLIST, FRONT END AT ANGLE           &lt;NA&gt;
+36                NOT ENOUGH INFORMATION / NOT APPLICABLE           &lt;NA&gt;
+37                         PEDALCYCLIST STRUCK PEDESTRIAN           &lt;NA&gt;
+   UNDERINFL WEATHER ROADCOND LIGHTCOND PEDROWNOTGRNT SDOTCOLNUM SPEEDING
+1       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+2       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+3       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+4       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+5       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+6       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+7       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+8       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+9       &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+10      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+11      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+12      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+13      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+14      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+15      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+16      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+17      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+18      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+19      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+20      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+21      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+22      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+23      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+24      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+25      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+26      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+27      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+28      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+29      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+30      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+31      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+32      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+33      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+34      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+35      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+36      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+37      &lt;NA&gt;    &lt;NA&gt;     &lt;NA&gt;      &lt;NA&gt;          &lt;NA&gt;         NA     &lt;NA&gt;
+   ST_COLCODE ST_COLDESC SEGLANEKEY CROSSWALKKEY HITPARKEDCAR
+1          NA       &lt;NA&gt;          0            0            N
+2          NA       &lt;NA&gt;          0            0            N
+3          NA       &lt;NA&gt;          0       544826            N
+4          NA       &lt;NA&gt;          0            0            N
+5          NA       &lt;NA&gt;          0            0            N
+6          NA       &lt;NA&gt;          0            0            N
+7          NA       &lt;NA&gt;          0            0            N
+8          NA       &lt;NA&gt;          0            0            N
+9          NA       &lt;NA&gt;          0            0            N
+10         NA       &lt;NA&gt;          0       525616            N
+11         NA       &lt;NA&gt;          0       523980            N
+12         NA       &lt;NA&gt;          0            0            N
+13         NA       &lt;NA&gt;          0            0            N
+14         NA       &lt;NA&gt;          0            0            N
+15         NA       &lt;NA&gt;          0       664952            N
+16         NA       &lt;NA&gt;          0            0            N
+17         NA       &lt;NA&gt;          0            0            N
+18         NA       &lt;NA&gt;          0            0            N
+19         NA       &lt;NA&gt;          0            0            N
+20         NA       &lt;NA&gt;          0            0            N
+21         NA       &lt;NA&gt;          0            0            N
+22         NA       &lt;NA&gt;          0            0            N
+23         NA       &lt;NA&gt;          0            0            N
+24         NA       &lt;NA&gt;          0            0            Y
+25         NA       &lt;NA&gt;          0            0            N
+26         NA       &lt;NA&gt;          0            0            N
+27         NA       &lt;NA&gt;          0            0            N
+28         NA       &lt;NA&gt;          0            0            N
+29         NA       &lt;NA&gt;          0            0            N
+30         NA       &lt;NA&gt;          0            0            N
+31         NA       &lt;NA&gt;          0            0            N
+32         NA       &lt;NA&gt;          0            0            N
+33         NA       &lt;NA&gt;          0            0            N
+34         NA       &lt;NA&gt;          0            0            N
+35         NA       &lt;NA&gt;          0            0            N
+36         NA       &lt;NA&gt;          0            0            N
+37         NA       &lt;NA&gt;          0            0            N</code></pre>
+<p><strong>Observations:</strong> Not that I can see, other than many of the factor values are null.</p>
+</div>
 <div id="there-are-several-collision-type-columns-what-do-they-look-like" class="section level4">
 <h4>There are several collision type columns, what do they look like?</h4>
 <pre class="r"><code># Print count and % of column values
@@ -1070,6 +1538,7 @@ as.data.frame(lapply(df[,cols],
 <li>Minimum INCDATE = ‘2003-10-06T00:00:00.000Z’, the only record in 2003</li>
 <li>SEVERITYCODE, SDOT_COLCODE and SDOT_COLDESC: each have only 1 NULL value</li>
 <li>The SEVERITYCODE=NA could be marked ‘0’ instead because INJURY, SERIOUSINJURIES and FATALITIES = 0</li>
+<li>There are a handful of records where the INJURIES and SERIOUSINJURIES counts do not match the SEVERITYCODE.</li>
 <li>The only incident with no SDOT_COLCODE is also the first record (by timestamp). It may be a test insert</li>
 <li>SDOT_COLCODE contains categorical data but is datatype Integer.</li>
 <li>Inconsistencies exist between SDOT_COLDESC and ST_COLDESC, and other ‘counts of things’ columns (e.g. PEDCOUNT).</li>
@@ -1213,6 +1682,7 @@ Motor Vehicle               185584   90.14
 Pedalcyclist                  1983    0.96
 Unknown / NA                 17899    8.69</code></pre>
 <pre class="r"><code># Struck (the one getting struck); Note: Pedestrian includes Pedalcyclist not in traffic
+# Combine 'Object' and 'Fixed Object'
 df &lt;- df %&gt;%
     mutate(., SDOT_struck = with(., case_when(
         (SDOT_COLCODE == 1 | SDOT_COLCODE == 3 | SDOT_COLCODE == 4 )   ~ 'Motor Vehicle',
@@ -1223,9 +1693,9 @@ df &lt;- df %&gt;%
         (SDOT_COLCODE &gt;= 17 &amp; SDOT_COLCODE &lt;= 23) ~ 'Pedalcyclist',
         (SDOT_COLCODE == 24 | SDOT_COLCODE == 44 | SDOT_COLCODE == 64) ~ 'Pedestrian',
         (SDOT_COLCODE == 25 | SDOT_COLCODE == 45 | SDOT_COLCODE == 65) ~ 'Train',
-        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object in Roadway',
+        (SDOT_COLCODE == 26 | SDOT_COLCODE == 46 | SDOT_COLCODE == 66) ~ 'Object',
         (SDOT_COLCODE == 27 | SDOT_COLCODE == 47 | SDOT_COLCODE == 67) ~ 'Non Collision',
-        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Fixed Object',
+        (SDOT_COLCODE == 28 | SDOT_COLCODE == 48 | SDOT_COLCODE == 68) ~ 'Object',
         (SDOT_COLCODE == 29 | SDOT_COLCODE == 49 | SDOT_COLCODE == 69) ~ 'Non Collision',
         (SDOT_COLCODE &gt;= 30 &amp; SDOT_COLCODE &lt;= 36) ~ 'Motor Vehicle',
         (SDOT_COLCODE &gt;= 37 &amp; SDOT_COLCODE &lt;= 43) ~ 'Pedalcyclist',
@@ -1244,10 +1714,9 @@ Table: this_df
 
 fct_explicit_na(...)         n    freq
 ---------------------  -------  ------
-Fixed Object              9146    4.44
 Motor Vehicle           162811   79.08
 Non Collision              794    0.39
-Object in Roadway         4588    2.23
+Object                   13734    6.67
 Pedalcyclist              3445    1.67
 Pedestrian                7100    3.45
 Train                       94    0.05
@@ -1256,29 +1725,26 @@ Unknown / NA             17899    8.69</code></pre>
 df %&gt;%
     group_by(SDOT_striker, SDOT_struck) %&gt;%
     summarise(count = n())</code></pre>
-<pre><code># A tibble: 19 x 3
+<pre><code># A tibble: 16 x 3
 # Groups:   SDOT_striker [4]
-   SDOT_striker             SDOT_struck        count
-   &lt;chr&gt;                    &lt;chr&gt;              &lt;int&gt;
- 1 Driverless Motor Vehicle Fixed Object         109
- 2 Driverless Motor Vehicle Motor Vehicle        281
- 3 Driverless Motor Vehicle Non Collision          2
- 4 Driverless Motor Vehicle Object in Roadway      4
- 5 Driverless Motor Vehicle Pedestrian            15
- 6 Motor Vehicle            Fixed Object        9031
- 7 Motor Vehicle            Motor Vehicle     160770
- 8 Motor Vehicle            Non Collision        706
- 9 Motor Vehicle            Object in Roadway   4554
-10 Motor Vehicle            Pedalcyclist        3433
-11 Motor Vehicle            Pedestrian          6996
-12 Motor Vehicle            Train                 94
-13 Pedalcyclist             Fixed Object           6
-14 Pedalcyclist             Motor Vehicle       1760
-15 Pedalcyclist             Non Collision         86
-16 Pedalcyclist             Object in Roadway     30
-17 Pedalcyclist             Pedalcyclist          12
-18 Pedalcyclist             Pedestrian            89
-19 Unknown / NA             Unknown / NA       17899</code></pre>
+   SDOT_striker             SDOT_struck    count
+   &lt;chr&gt;                    &lt;chr&gt;          &lt;int&gt;
+ 1 Driverless Motor Vehicle Motor Vehicle    281
+ 2 Driverless Motor Vehicle Non Collision      2
+ 3 Driverless Motor Vehicle Object           113
+ 4 Driverless Motor Vehicle Pedestrian        15
+ 5 Motor Vehicle            Motor Vehicle 160770
+ 6 Motor Vehicle            Non Collision    706
+ 7 Motor Vehicle            Object         13585
+ 8 Motor Vehicle            Pedalcyclist    3433
+ 9 Motor Vehicle            Pedestrian      6996
+10 Motor Vehicle            Train             94
+11 Pedalcyclist             Motor Vehicle   1760
+12 Pedalcyclist             Non Collision     86
+13 Pedalcyclist             Object            36
+14 Pedalcyclist             Pedalcyclist      12
+15 Pedalcyclist             Pedestrian        89
+16 Unknown / NA             Unknown / NA   17899</code></pre>
 </div>
 </div>
 <div id="fix-and-trim" class="section level3">
@@ -1298,7 +1764,7 @@ df$SEVERITYCODE[is.na(df$SEVERITYCODE)] &lt;- 0
 df &lt;- df %&gt;%
     select(-OBJECTID, -REPORTNO, -STATUS, -EXCEPTRSNCODE, -EXCEPTRSNDESC,
            -COLDETKEY, -INCKEY, -INTKEY, -SDOTCOLNUM, -SEGLANEKEY, -CROSSWALKKEY, 
-           -PEDROWNOTGRNT, -LOCATION)
+           -PEDROWNOTGRNT, -LOCATION, -ST_COLDESC_collisiontype, -ST_collisiontype)
 
 # Verify
 print_date_range(df)</code></pre>
@@ -1309,42 +1775,40 @@ print_date_range(df)</code></pre>
 <h3>Data structure after cleaning</h3>
 <pre class="r"><code>glimpse(df)</code></pre>
 <pre><code>Observations: 205,876
-Variables: 35
-$ ADDRTYPE                 &lt;fct&gt; Block, Block, Block, Intersection, Inte…
-$ SEVERITYCODE             &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, …
-$ SEVERITYDESC             &lt;fct&gt; Property Damage Only, Property Damage O…
-$ COLLISIONTYPE            &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cy…
-$ PERSONCOUNT              &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, …
-$ PEDCOUNT                 &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ PEDCYLCOUNT              &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ VEHCOUNT                 &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, …
-$ INJURIES                 &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, …
-$ SERIOUSINJURIES          &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ FATALITIES               &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-$ INCDATE                  &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 20…
-$ INCDTTM                  &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 1…
-$ JUNCTIONTYPE             &lt;fct&gt; Mid-Block (not related to intersection)…
-$ SDOT_COLCODE             &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14,…
-$ SDOT_COLDESC             &lt;fct&gt; &quot;MOTOR VEHICLE STRUCK MOTOR VEHICLE, FR…
-$ DISTRACTED               &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, …
-$ DUI                      &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ WEATHER                  &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raini…
-$ ROADCOND                 &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet,…
-$ LIGHTCOND                &lt;fct&gt; Daylight, Daylight, Daylight, Daylight,…
-$ SPEEDING                 &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, …
-$ ST_COLCODE               &lt;int&gt; 28, 11, 23, 10, 45, 19, 14, 71, 28, 14,…
-$ ST_COLDESC               &lt;fct&gt; From opposite direction - one left turn…
-$ HITPARKEDCAR             &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, …
-$ ST_COLDESC_collisiontype &lt;chr&gt; &quot;Left Turn&quot;, &quot;Sideswipe&quot;, &quot;Other&quot;, &quot;Ang…
-$ ST_collisiontype         &lt;chr&gt; &quot;Other&quot;, &quot;Other&quot;, &quot;Other&quot;, &quot;Other&quot;, &quot;Ot…
-$ year                     &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 200…
-$ month                    &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11…
-$ time                     &lt;dttm&gt; 2019-05-28 15:10:00, 2019-05-28 14:00:…
-$ hour                     &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8…
-$ day_part                 &lt;fct&gt; Afternoon, Afternoon, Morning, Morning,…
-$ season                   &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, W…
-$ SDOT_striker             &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Moto…
-$ SDOT_struck              &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Moto…</code></pre>
+Variables: 33
+$ ADDRTYPE        &lt;fct&gt; Block, Block, Block, Intersection, Intersection,…
+$ SEVERITYCODE    &lt;fct&gt; 1, 1, 1, 2, 2, 1, 2, 1, 2, 2, 1, 1, 1, 2, 1, 1, …
+$ SEVERITYDESC    &lt;fct&gt; Property Damage Only, Property Damage Only, Prop…
+$ COLLISIONTYPE   &lt;fct&gt; Left Turn, Sideswipe, Other, Angles, Cycles, Par…
+$ PERSONCOUNT     &lt;int&gt; 2, 3, 2, 4, 5, 3, 2, 2, 2, 2, 2, 2, 1, 3, 2, 2, …
+$ PEDCOUNT        &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ PEDCYLCOUNT     &lt;int&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ VEHCOUNT        &lt;int&gt; 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 1, 3, 2, 2, …
+$ INJURIES        &lt;int&gt; 0, 0, 0, 1, 1, 0, 2, 0, 2, 1, 0, 0, 0, 1, 0, 0, …
+$ SERIOUSINJURIES &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ FATALITIES      &lt;int&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+$ INCDATE         &lt;date&gt; 2013-04-02, 2013-03-30, 2006-10-24, 2005-07-28,…
+$ INCDTTM         &lt;fct&gt; 4/2/13 15:10, 3/30/13 14:00, 10/24/06 10:01, 7/2…
+$ JUNCTIONTYPE    &lt;fct&gt; Mid-Block (not related to intersection), Mid-Blo…
+$ SDOT_COLCODE    &lt;int&gt; 11, 11, 11, 11, 51, 11, 14, 11, 11, 14, 11, 11, …
+$ SDOT_COLDESC    &lt;fct&gt; &quot;MOTOR VEHICLE STRUCK MOTOR VEHICLE, FRONT END A…
+$ DISTRACTED      &lt;fct&gt; N, N, N, N, Y, N, Y, Y, N, Y, N, N, Y, N, N, N, …
+$ DUI             &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ WEATHER         &lt;fct&gt; Overcast, Clear or Partly Cloudy, Raining, Clear…
+$ ROADCOND        &lt;fct&gt; Dry, Dry, Wet, Dry, Dry, Dry, Dry, Wet, Dry, Dry…
+$ LIGHTCOND       &lt;fct&gt; Daylight, Daylight, Daylight, Daylight, Dusk, Da…
+$ SPEEDING        &lt;fct&gt; N, N, Y, N, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ ST_COLCODE      &lt;int&gt; 28, 11, 23, 10, 45, 19, 14, 71, 28, 14, 20, 71, …
+$ ST_COLDESC      &lt;fct&gt; From opposite direction - one left turn - one st…
+$ HITPARKEDCAR    &lt;fct&gt; N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, N, …
+$ year            &lt;fct&gt; 2013, 2013, 2006, 2005, 2013, 2006, 2004, 2005, …
+$ month           &lt;fct&gt; 4, 3, 10, 7, 4, 2, 9, 6, 4, 8, 4, 8, 11, 7, 4, 3…
+$ time            &lt;dttm&gt; 2019-05-30 15:10:00, 2019-05-30 14:00:00, 2019-…
+$ hour            &lt;fct&gt; 15, 14, 10, 11, 19, 0, 12, NA, 19, 7, 8, NA, 8, …
+$ day_part        &lt;fct&gt; Afternoon, Afternoon, Morning, Morning, Evening,…
+$ season          &lt;fct&gt; Spring, Spring, Fall, Summer, Spring, Winter, Fa…
+$ SDOT_striker    &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehicle…
+$ SDOT_struck     &lt;chr&gt; &quot;Motor Vehicle&quot;, &quot;Motor Vehicle&quot;, &quot;Motor Vehicle…</code></pre>
 <pre class="r"><code># Any lingering NULLs?
 print_null_count(df)</code></pre>
 <pre><code>           null_count
