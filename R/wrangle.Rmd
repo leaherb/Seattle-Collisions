@@ -177,7 +177,7 @@ df %>%
 There are 37 more records where SEVERITYDESC = 'Serious Injury Collision' than SERIOUSINJURIES > 0, and 
 37 records fewer records where SEVERITYDESC = 'Injury Collision' than INJURIES > 0. 
 
-#### Do these 37 records have anything in common?
+#### Do these 37 records have any factors in common that we can use to reverse-engineer back into SEVERITYDESC?
 ```{r}
 df %>% filter(
         (SEVERITYDESC == 'Fatality Collision' & FATALITIES == 0) |
@@ -201,11 +201,11 @@ get_column_values(df, cols)
 
 * SDOT_COLDESC has a misspelling (MOTOR VEHCILE STRUCK PEDESTRIAN)
 
-* COLLISIONTYPE has most generalized category differentiation, with only 10 non-null values, we do not know how this data was created. Can we reverse-engineer SDOT_COLCODE or ST_COLCODE to re-create COLLISIONTYPE?
+* COLLISIONTYPE has fewest categories (10 non-null). We do not know how this data was created. Can we reverse-engineer SDOT_COLCODE or ST_COLCODE to re-create COLLISIONTYPE?
 
-* SDOT_COLDESC clearly identifies what did the striking (DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST) and what got struck.
+* SDOT_COLDESC clearly identifies what did the striking (DRIVERLESS, MOTOR VEHICLE or PEDALCYCLIST) and what got struck
 
-* ST_COLDESC has the most factor values (62 non-null), with more details than SDOT_COLDESC
+* ST_COLDESC has the most categories (62 non-null) that include more details than SDOT_COLDESC
 
 
 According to the Collisions_OD.pdf:
@@ -279,7 +279,7 @@ print_value_counts(df, 'COLLISIONTYPE')
 ```
 **Observations:** Yes, we can successfully create COLLISIONTYPE using ST_COLCODE. # TODO include compromises to data if any.
 
-**Can we do the same reverse-engineering using ST_COLDESC and parsing string values (e.g. look for 'Pedestrian')?
+**Can we do the same reverse-engineering using ST_COLDESC (instead of ST_COLCODE), parsing string values (e.g. look for 'Pedestrian')?
 ```{r}
 df$ST_collisiontype <- tolower(df$ST_COLDESC)
 
@@ -297,7 +297,7 @@ print_value_counts(df, 'ST_collisiontype')
 ```
 **Observations:** No.
 
-I did not complete the ST_COLDESC string parse method to create COLLISIONTYPE because it appears there is an error in at least one ST_COLDESC: the ST_COLCODE/ST_COLDESC combinations in the dataset does not match the printable "State Collision Code Directory" for **Code** = 5. The printable version has 5 = '... Pedestrian ...', while the dataset has 5 = '... Pedalcyclist ...'. A subtle difference, but an error nonetheless.
+I did not complete the ST_COLDESC string parse method to create COLLISIONTYPE because it appears there is an error in at least one ST_COLDESC: the ST_COLCODE/ST_COLDESC combinations in the dataset does not match the PDF's "State Collision Code Directory" for **Code** = 5. The PDF version states that 5 = '... Pedestrian ...', while the dataset states 5 = '... Pedalcyclist ...'. A subtle difference, but an error nonetheless.
 
 ![State Collision Code Directory - first 5 rows](../docs/ST_COLCODE_error.png)
 
@@ -307,11 +307,7 @@ d <- df %>%
     filter(ST_COLCODE <= 5) %>%
     distinct(ST_COLCODE, ST_COLDESC) %>%
     arrange(ST_COLCODE) #%>% rename(Code = ST_COLCODE, Description = ST_COLDESC)
-```
 
-
-```{r}
-# works
 hj <- matrix(c(.5, 0), ncol=2, nrow=nrow(d), byrow=TRUE)
 x <- matrix(c(.5, 0), ncol=2, nrow=nrow(d), byrow=TRUE)
 
@@ -329,7 +325,9 @@ for (i in c(10,16)) {
 }
 grid.draw(tg)
 ```
+
 **Add a title to the graph.** TODO: find a simpler way to plot the table with a title.
+
 ```{r}
 library(grid)
 library(gridExtra)
@@ -358,16 +356,12 @@ df %>% filter(!is.na(ST_COLDESC)) %>%
                (!str_detect(tolower(ST_COLDESC), 'pedalcyclist') & str_detect(tolower(SDOT_COLDESC), 'pedalcyclist'))) %>%
     group_by(SDOT_COLDESC, ST_COLDESC, PEDCYLCOUNT, PEDCOUNT) %>%
     summarize(n = n())
-
-df %>% filter(!is.na(ST_COLDESC)) %>%
-    filter((str_detect(tolower(ST_COLDESC), 'pedalcyclist') & !str_detect(tolower(SDOT_COLDESC), 'pedalcyclist')) |
-               (!str_detect(tolower(ST_COLDESC), 'pedalcyclist') & str_detect(tolower(SDOT_COLDESC), 'pedalcyclist'))) %>%
-    summarize(n = n())
 ```
-**Observations:** Contradictions exist
+**Observations:** Possibly. There are also possible contradictions with counts-of-things such as PEDCYCLCOUNT and PEDCOUNT.
+
 I did a litmus test to see if the word 'pedalcyclist' shows up in both the SDOT and State's collision descriptions. There are well over 500 contradictions on 'pedalcyclist' alone. For example, SDOT_COLDESC = 'MOTOR VEHICLE STRUCK MOTOR VEHICLE...' and ST_COLDESC = 'Vehicle - Pedalcyclist' (117 records).
 
-Also, there are some records where SDOT claims '...STRUCK PEDALCYCLIST' yet PEDCYCLCOUNT = 0 and PEDCOUNT = 0. 
+Also, there are some records where SDOT claims '...STRUCK PEDALCYCLIST' **yet** PEDCYCLCOUNT = 0 and PEDCOUNT = 0. 
 
 
 #### What do binary-esque columns look like?
@@ -376,9 +370,14 @@ Also, there are some records where SDOT claims '...STRUCK PEDALCYCLIST' yet PEDC
 cols <- c('UNDERINFL', 'INATTENTIONIND', 'SPEEDING', 'HITPARKEDCAR')
 print_value_counts(df, cols)
 ```
+**Observations:**
+* **UNDERINFL** contains 0, 1, N, Y and null
+* **INATTENTIONIND** and **SPEEDING** has just Y and null
+* **HITPARKEDCAR** has N and Y, and no null
 
 #### For each counts-of-things column, what % of values are > 0?
 ```{r}
+options(width = 1000)
 cols <- c('PERSONCOUNT', 'PEDCOUNT', 'PEDCYLCOUNT', 'VEHCOUNT',
           'INJURIES', 'SERIOUSINJURIES', 'FATALITIES')
 as.data.frame(lapply(df[,cols], 
