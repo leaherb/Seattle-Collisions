@@ -104,17 +104,81 @@ ggplot(data = df %>%
 **Observations: **
 Collisions tend to rise during commute hours, starting at the lowest point around 4am, reaching a peak at 5pm. 
 
-TODO: Chart by hour by day of week (or weekday vs weekend)
-
 #### 2a. Hourly collisions by day of week
+```{r warning=FALSE}
+weekend <- c('Saturday', 'Sunday')
+weekday <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+alldays <- c(weekday, weekend)
+
+# TODO fix y max limit programmatically
+plot_hours <- function(day, title) {
+    gg <- ggplot(data = df %>%
+               filter(!is.na(hour) & weekdays(INCDATE) %in% day) %>%
+               count(hour),
+           aes(x = hour, y = n, group = 1 )) +
+        geom_line() +
+        labs(title = paste(title), x = '', y = '') +
+        mytheme_minimal  +
+        scale_x_discrete(breaks = c(0,4,8,12,16,20,24)) +
+        scale_y_continuous(limits = c(0, 2250), 
+                           breaks = seq(0, 2100, 700),
+                           labels = scales::comma) 
+    return (gg)
+}
+
+# create list of plots, one for each day of the week
+plot_list <- lapply(
+    as.list(alldays), function(x){
+    plot_hours(x, paste0('- ', x, 's'))
+})
+
+#cowplot::plot_grid(plotlist = plot_list, ncol = 3)
+
+ggarrange(plotlist = plot_list, ncol=3, nrow=3) + 
+    annotate(geom = 'text', label = 'title', hjust = 0)
+
+```
+
+
+### By month
+
+### By part of day
+
+### By season
 
 ## Who
 
+### Striker, strikee
+
+### Pedestrians, Cyclists
+
+### Parked cars, trains, other
+
 ## What
+
+### Collision type
+
+### Property damage, Injuries, Fatalities
 
 ## Where
 
+### Address type, Junction type
+
 ## Why
+
+### Weather, Road Condition, Lighting
+
+### DUI, Distracted, Speeding
+
+### Traffic volume(?)
+
+## Multivariate
+
+### When and Why
+
+### Who and What
+
+### <etc>
 
 # Summary
 
