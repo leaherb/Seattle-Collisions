@@ -18,7 +18,7 @@ This project a work in progress. The R method is actively being refined and will
 
 I encourage you to submit pull requests.
 
-Please use the Udacity Git Commit Message Style Guide (https://udacity.github.io/git-styleguide/), and follow the "fork-and-pull" Git workflow:
+Please use the [Udacity Git Commit Message Style Guide](https://udacity.github.io/git-styleguide/), and follow the "fork-and-pull" Git workflow:
 
 1. Fork the repo on GitHub
 1. Clone the project to your own computer
