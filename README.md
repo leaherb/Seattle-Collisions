@@ -41,6 +41,7 @@ Note: Please take care to merge the latest from "upstream" before making a pull 
 * Add Python method
 * Add SQL method
 * Add Tableau method
+* Add Excel method
 * Write and publish formal project report
 
 ## Files and Directories
