@@ -57,6 +57,285 @@ mylayer_long_xlabel <- theme(axis.text.x = element_text(angle = 90, hjust = 1))
 mylayer_count_above <- geom_text(stat='count', aes(label = ..count..), vjust = -.2)
 ```
 
+# Load data
+```{r Load_data}
+datafile = '../data/collisions_clean.rda'
+load(file = datafile)
+
+# Create df_trim_yrs to contain only complete year's worth of data
+# TODO: include logic, remove hardcode
+df_full_yrs <- subset(df, year != '2019' & year != '2003')
+df$hour <- as.integer(df$hour)
+```
+
+# Explore
+
+## When
+
+### 1. Collision count by year
+```{r}
+ggplot(data = df_full_yrs %>% count(year), aes(x = year, y = n)) + 
+    geom_bar(stat = "identity", aes(fill = n)) + 
+    labs(title = 'Collision count by year', x = '', y = '') +
+    mytheme_minimal +
+    scale_fill_distiller(palette = 'Greys', direction = 1) +
+    scale_x_discrete(position = 'top') +
+    scale_y_continuous(labels = scales::comma) 
+```
+
+**Observations: **
+There appears to be a 10-is year trend: 5 years down, 5 years up, then going back down.
+
+The first peak, at year 2005, was higher than the second peak 10 years later, at year 2015.
+
+I had expected to see a steady increase in Seattle collisions, mirroring population growth. Perhaps I'm wrong about the steady increase in population, or wrong that the number of **reported** collisions have a strong correlation with the population. #TODO: import population data and compare rate changes with collision rates by year.
+
+### 2. Collision count by hour
+```{r warning=FALSE}
+ df %>% 
+    filter(!is.na(hour)) %>%
+    count(hour)
+
+ggplot(data = df %>% 
+           filter(!is.na(hour)) %>%
+           count(hour), 
+       aes(x = hour, y = n, group = 1 )) + 
+    geom_line() + 
+    labs(title = 'Collision Count by Hour', x = '', y = '') +
+    mytheme_minimal  +
+    scale_y_continuous(labels = scales::comma) 
+```
+
+### 2b. Collision count by hour, Radial version
+
+```{r}
+
+create_radial_plot <- function(data, col_name, title, subtitle) {
+    
+    col_name <- enquo(col_name)
+    
+    # define inner and outer circle sizes (y)
+    max_col <- as.integer(
+        data %>%
+            group_by(!!col_name) %>%
+            summarise(n = n()) %>%
+            top_n(1) %>%
+            .$n)
+    # size the hole for the middle of radial at 5% of the radius
+    donut_hole <- max_col * .05  
+    # define y values for reference circles at 1/3 intervals
+    b1 <- max_col * .33
+    b2 <- max_col * .66
+    b3 <- max_col * .99
+ 
+    p <- ggplot() +
+        # make radial
+        coord_polar(start=-48/360) +
+        # add circle grid lines at defined breaks
+        geom_hline(yintercept = c(0, b1, b2, b3), colour = my_grid_grey, size = 0.2) +
+        # draw radius grid manually to avoid extending beyond outer circle
+        geom_vline(xintercept = seq(0, 23), colour = my_grid_grey, size = 0.2) +
+        # draw data 'slices'
+        geom_bar(data = data, aes(x = hour), width=1, color='white', size=0.1)  +
+        # mark hours on the 24-hour clock
+        scale_x_continuous(breaks = seq(0,23), 
+                           labels = c('12 am', paste(1:11,'am'), '12 pm', paste(13:23-12, 'pm'))) +
+        # make donut hole
+        scale_y_continuous(limits = c(-donut_hole, max_col + donut_hole)) + 
+        # add plot titles
+        labs(title = title,
+             subtitle = subtitle,
+             caption = 'Data source: https://data.seattle.gov  (2004 - 2018)') +
+        # define theme options
+        theme_minimal() +
+        theme(
+            plot.title = element_text(size = 24, face = 'bold', color = '#333333'),
+            plot.subtitle = element_text(size = 12, color = '#333333'),
+            plot.caption = element_text(size = 7), #, hjust = 1.8),
+            # bold-ize 6 am/pm and 12 am/pm
+            axis.text.x = element_text(size = 12,
+                                       face = c('bold', 'plain', 'plain', 'plain', 'plain', 'plain',
+                                                'bold', 'plain', 'plain', 'plain', 'plain', 'plain',
+                                                'bold', 'plain', 'plain', 'plain', 'plain', 'plain',
+                                                'bold', 'plain', 'plain', 'plain', 'plain', 'plain')),
+            # remove axis labels
+            axis.title = element_blank(),
+            # remove y axis ticks and text
+            axis.text.y = element_blank() , 
+            axis.ticks = element_blank(),
+            # remove outermost circle
+            panel.grid.major.y = element_blank(),
+            # remove 1/2 hour grid lines
+            panel.grid.minor = element_blank(),
+            # remove hour grid lines, too
+            panel.grid.major.x = element_blank()
+        )  
+ 
+    
+    return (p)
+}
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE, color_options}
+# grideline grey setting
+my_grid_grey <- 'grey90'
+# All collisions
+create_radial_plot(data = df, 
+            col_name = hour,
+            title = '', 
+            subtitle = 'All collisions')
+# DUI
+create_radial_plot(data = df[which(df$DUI == 'Y'),], 
+            col_name = hour,
+            title = '', 
+            subtitle = 'DUIs')
+```
+
+
+
+
+**Observations: **
+Collisions tend to rise during commute hours, starting at the lowest point around 4am, reaching a peak at 5pm. 
+
+#### 2a. Hourly collisions by day of week
+```{r warning=FALSE}
+weekend <- c('Saturday', 'Sunday')
+weekday <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+alldays <- c(weekday, weekend)
+
+# TODO fix y max limit programmatically
+plot_hours <- function(day, title) {
+    gg <- ggplot(data = df %>%
+               filter(!is.na(hour) & weekdays(INCDATE) %in% day) %>%
+               count(hour),
+           aes(x = hour, y = n, group = 1 )) +
+        geom_line() +
+        labs(title = paste(title), x = '', y = '') +
+        mytheme_minimal  +
+        scale_x_discrete(breaks = c(0,4,8,12,16,20,24)) +
+        scale_y_continuous(limits = c(0, 2250), 
+                           breaks = seq(0, 2100, 700),
+                           labels = scales::comma) 
+    return (gg)
+}
+
+# create list of plots, one for each day of the week
+plot_list <- lapply(
+    as.list(alldays), function(x){
+    plot_hours(x, paste0('- ', x, 's'))
+})
+
+#cowplot::plot_grid(plotlist = plot_list, ncol = 3)
+
+ggarrange(plotlist = plot_list, ncol=3, nrow=3) + 
+    annotate(geom = 'text', label = 'title', hjust = 0)
+
+```
+
+
+### By month
+
+### By part of day
+
+### By season
+
+## Who
+
+### Striker, strikee
+
+### Pedestrians, Cyclists
+
+### Parked cars, trains, other
+
+## What
+
+### Collision type
+
+### Property damage, Injuries, Fatalities
+
+## Where
+
+### Address type, Junction type
+
+## Why
+
+### Weather, Road Condition, Lighting
+
+### DUI, Distracted, Speeding
+
+### Traffic volume(?)
+
+## Multivariate
+
+### When and Why
+
+### Who and What
+
+### <etc>
+
+# Summary
+
+||||||| merged common ancestors
+=======
+---
+title: "Exploratory Analysis of Seattle Collisions"
+author: "Leah Erb"
+---
+
+This report explores **collision** report data from **Seattle, Washington, USA**.
+
+# The Dataset
+The [Seattle Collisions](https://data-seattlecitygis.opendata.arcgis.com/datasets/collisions) dataset is a compilation of over 200,000 collision reports created by Seattle Police Department (SPD) that were then recorded by Seattle Department of Transportation (SDOT), between the years 2004 and 2018.
+
+
+```{css echo=FALSE, message=FALSE, warning=FALSE, CSS}
+/* Define a margin before header elements */
+h1  {
+  margin-top: 52px;
+}
+h2, h3, h4  {
+  margin-top: 48px;
+}
+/* Define a margin after every first p elements */
+p:first-of-type {
+  margin-bottom: 14px;
+}
+``` 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Libraries}
+# libraries
+library(ggplot2)
+library(ggpubr)     # ggarrange
+library(scales)
+library(GGally)     # ggcorr
+library(dplyr)
+library(tidyverse)
+library(knitr)
+library(psych)
+library(reshape2)  
+library(cowplot)
+library(gridExtra)
+
+# global settings
+knitr::opts_chunk$set(comment=NA, fig.width=9, fig.height=6)
+
+# ggplot layers
+mytheme_minimal <- theme_minimal() +
+    theme(plot.title = element_text(size = 16, hjust = 0),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 11),
+          axis.title.x = element_text(hjust = 0),
+          legend.position = "none"
+          ) 
+
+mylayer_color <- scale_color_brewer(palette = 'Dark2', direction = 1)  
+mylayer_fillcolor <- scale_fill_brewer(palette = 'Dark2', direction = 1)
+mylayer_x90 <- theme(axis.text.x = element_text(angle = 90, hjust = 1))
+mylayer_hour_breaks <- scale_x_datetime(labels = date_format("%H:%M"), date_breaks = ('2 hours')) 
+mylayer_long_xlabel <- theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+mylayer_count_above <- geom_text(stat='count', aes(label = ..count..), vjust = -.2)
+```
+
 ```{r Load_data}
 # Load data
 datafile = '../data/collisions_clean.rda'
@@ -181,4 +460,3 @@ ggarrange(plotlist = plot_list, ncol=3, nrow=3) +
 ### <etc>
 
 # Summary
-
