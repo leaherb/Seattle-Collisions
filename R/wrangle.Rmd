@@ -15,14 +15,14 @@ options(digits=2)
 ```
 
 ```{css echo=FALSE, message=FALSE, warning=FALSE, CSS}
-/* Define a margin before header elements */
+/* Add margin to headers */
 h1  {
   margin-top: 52px;
 }
 h2, h3, h4  {
   margin-top: 48px;
 }
-/* Define a margin after every first p elements */
+/* Add margin to first paragraph */
 p:first-of-type {
   margin-bottom: 14px;
 }
@@ -453,28 +453,13 @@ Clean
   + season (Spring, Summer, Fall, Winter) <- factor
 
 
-```{r Clean_data}
+```{r Clean_time}
 df$INCDATE <- as.Date(df$INCDATE)
 df$year <- as.factor(lubridate::year(as.Date(df$INCDATE)))
 df$month <- as.factor(lubridate::month(as.Date(df$INCDATE)))
-# extract time 'word' from date/time, will be NA if only date is present
-df$time <- word(df$INCDTTM, 2)
-# extract just the HH:MM from time (without date and timezone)
-df$time <- format(strptime(df$time, "%H:%M"), format="%H:%M")
-# get hour from HH:MM time string
-df$hour <- substr(df$time, 0, 2)
-
-# TODO: DROP THIS NEXT SECTION
-#df$time <- as.POSIXct((strptime(word(df$INCDTTM,2), "%H:%M")), format='%H:%M')
-#df$time <- word(df$INCDTTM, 2, 3)
-#df$time <- format(strptime(df$time, "%I:%M:%S %p"), format="%H:%M")
-#head(df$time)
-#head(word(df$time, sep = ':'))
-#head(substr(df$time,0,2))
-#df$hour <- as.integer(substr(df$time, 0, 2))
-```
-
-```{r}
+df$time <- word(df$INCDTTM, 2, 3)
+df$time <- format(strptime(df$time, "%I:%M:%S %p"), format="%H:%M")
+df$hour <- as.integer(substr(df$time, 0, 2))
 
 df <- df %>%
     mutate(., day_part = with(., case_when(
@@ -486,7 +471,6 @@ df <- df %>%
         TRUE ~ 'Unknown'
     )))
 
-#df$hour <- as.factor(df$hour)
 df$day_part <- factor(df$day_part)
 
 df <- df %>%
